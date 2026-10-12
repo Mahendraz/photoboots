@@ -20,7 +20,14 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Tampilan sementara selama JS dimuat (diganti React begitu siap), supaya di koneksi lambat tidak terlihat mati. -->
+    <div id="root">
+      <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#fff7ec;color:#6f625a;font:600 15px/1.4 system-ui,sans-serif">
+        <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true"><rect x="18" y="4" width="28" height="56" rx="4" fill="#1f1a17"/><rect x="22" y="9" width="20" height="13" rx="2" fill="#ff4f6d"/><rect x="22" y="25" width="20" height="13" rx="2" fill="#ffd166"/><rect x="22" y="41" width="20" height="13" rx="2" fill="#7bdff2"/></svg>
+        <span>Memuat photobooth…</span>
+      </div>
+    </div>
+    <noscript>Photobooth butuh JavaScript. Aktifkan JavaScript di browser kamu.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

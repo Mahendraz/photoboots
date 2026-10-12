@@ -1,12 +1,6 @@
 // Worker `photobooth`: hanya melayani /api/* (kuota strip) dan /auth/* (login Auth0, skema asset.inwebsite.online).
 // Semua halaman & aset dilayani langsung sebagai berkas statis (gratis, tidak dihitung request Worker).
-// Sebelum deploy pertama:
-//   1. (sudah) D1 photobooth-db dibuat 13 Okt 2026
-//   2. (sudah) npm run db:migrate:remote
-//   3. Buat aplikasi Auth0 "photobooth" (Regular Web Application) di tenant nehard.us.auth0.com
-//      (setelannya di README), isi AUTH0_CLIENT_ID di bawah, lalu:
-//      npx wrangler secret put AUTH0_CLIENT_SECRET
-//      npx wrangler secret put SESSION_SECRET   (string acak ≥ 32 karakter)
+// Secret Worker (wrangler secret put): AUTH0_CLIENT_SECRET, SESSION_SECRET. Setelan aplikasi Auth0 ada di README.
 {
   "name": "photobooth",
   "main": "worker/index.ts",
@@ -21,8 +15,8 @@
   "vars": {
     // Tenant Auth0 bersama aplikasi InWebsite lain; keduanya publik.
     "AUTH0_DOMAIN": "nehard.us.auth0.com",
-    // Kosong = login belum aktif (di lokal memakai login dev). Diisi setelah aplikasi Auth0-nya dibuat.
-    "AUTH0_CLIENT_ID": "",
+    // Aplikasi Auth0 "photobooth" (Regular Web Application, dibuat 13 Okt 2026). Client secret ada di secret Worker.
+    "AUTH0_CLIENT_ID": "N4zAoqayeSQ7rNKFGtR5Z24U76vuPdwT",
     // Login email + kata sandi (koneksi Username-Password-Authentication), sama seperti asset.inwebsite.online.
     "EMAIL_LOGIN": "true",
     "DAILY_LIMIT": "5"

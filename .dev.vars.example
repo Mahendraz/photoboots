@@ -1,6 +1,6 @@
 # Salin ke .dev.vars untuk pengembangan lokal.
 ENVIRONMENT=development
 SESSION_SECRET=ganti-dengan-string-acak-panjang-minimal-32-karakter
-# Kosong = login dev (nama saja). Isi (bersama AUTH0_CLIENT_ID di wrangler.jsonc) untuk mencoba Auth0 sungguhan;
-# tambahkan http://localhost:5173/auth/callback ke Allowed Callback URLs aplikasi Auth0-nya.
+# Kosong = login dev (nama saja). Isi dengan client secret aplikasi Auth0 "photobooth" untuk mencoba Auth0 sungguhan
+# di http://localhost:5173 (callback lokal itu sudah terdaftar di aplikasinya).
 AUTH0_CLIENT_SECRET=

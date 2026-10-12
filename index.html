@@ -6,6 +6,11 @@
     <meta name="theme-color" content="#fff7ec" />
     <meta name="description" content="Photobooth online gratis: pilih strip 3 sampai 10 frame, foto pakai kamera atau upload, hias, lalu unduh." />
     <title>Photobooth Online</title>
+    <script>
+      // Zona inwebsite.online tidak memaksa HTTPS; login (cookie __Host-, callback Auth0) hanya jalan di https.
+      if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1')
+        location.replace('https://' + location.host + location.pathname + location.search + location.hash)
+    </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -57,6 +57,11 @@ function accounts(db: D1Database) {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url)
+    // Login & sesi hanya jalan di https (cookie __Host-, callback Auth0 harus persis sama).
+    if (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
+      url.protocol = 'https:'
+      return Response.redirect(url.toString(), 308)
+    }
     const acc = accounts(env.DB)
 
     const auth = await handleAuthRequest(request, url, env, acc.onLogin, acc.store)

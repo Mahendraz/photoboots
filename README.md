@@ -63,22 +63,19 @@ npm run db:migrate:local
 npm run dev                            # http://localhost:5173/app
 ```
 
-## Deploy pertama ke Cloudflare
+## Deploy
 
-1. `npx wrangler d1 create photobooth-db --location apac` lalu salin `database_id` ke `wrangler.jsonc`.
-2. `npm run db:migrate:remote`
-3. Buat aplikasi Auth0 di tenant `nehard.us.auth0.com` (sama dengan asset & undangin):
-   - Nama `photobooth`, tipe **Regular Web Application**.
-   - Allowed Callback URLs: `https://photobooth.inwebsite.online/auth/callback, http://localhost:5173/auth/callback`
-   - Allowed Logout URLs: `https://photobooth.inwebsite.online/, http://localhost:5173/`
-   - Allowed Web Origins: `https://photobooth.inwebsite.online`
-   - Connections: `google-oauth2` dan `Username-Password-Authentication`.
-   - Advanced Settings → Grant Types: centang **Password**; aktifkan **Trust Token Endpoint IP Header**.
-4. Isi `AUTH0_CLIENT_ID` di `wrangler.jsonc`, lalu `npx wrangler secret put AUTH0_CLIENT_SECRET` dan
-   `npx wrangler secret put SESSION_SECRET` (string acak ≥ 32 karakter).
-5. `npm run deploy`
+`npm run deploy`. Infrastruktur yang sudah ada (13 Okt 2026):
 
-Domain `photobooth.inwebsite.online` dipasang otomatis lewat `routes` (custom domain) di `wrangler.jsonc`.
+- Worker `photobooth`, custom domain `photobooth.inwebsite.online`.
+- D1 `photobooth-db` (`a3bc346a-…`). Migrasi baru: `npm run db:migrate:remote`.
+- Secret Worker: `SESSION_SECRET`, `AUTH0_CLIENT_SECRET`.
+- Aplikasi Auth0 `photobooth` di tenant `nehard.us.auth0.com` (client ID di `wrangler.jsonc`):
+  Regular Web Application, grant `authorization_code` + `password`, Trust Token Endpoint IP Header aktif,
+  koneksi `google-oauth2` + `Username-Password-Authentication`.
+  - Allowed Callback URLs: `https://photobooth.inwebsite.online/auth/callback, http://localhost:5173/auth/callback`
+  - Allowed Logout URLs: `https://photobooth.inwebsite.online/, http://localhost:5173/`
+  - Allowed Web Origins: `https://photobooth.inwebsite.online`
 
 ## Catatan
 

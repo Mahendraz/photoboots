@@ -1,0 +1,41 @@
+// Worker `photobooth`: hanya melayani /api/* (kuota strip) dan /auth/* (login Auth0, skema asset.inwebsite.online).
+// Semua halaman & aset dilayani langsung sebagai berkas statis (gratis, tidak dihitung request Worker).
+// Sebelum deploy pertama:
+//   1. (sudah) D1 photobooth-db dibuat 13 Okt 2026
+//   2. (sudah) npm run db:migrate:remote
+//   3. Buat aplikasi Auth0 "photobooth" (Regular Web Application) di tenant nehard.us.auth0.com
+//      (setelannya di README), isi AUTH0_CLIENT_ID di bawah, lalu:
+//      npx wrangler secret put AUTH0_CLIENT_SECRET
+//      npx wrangler secret put SESSION_SECRET   (string acak ≥ 32 karakter)
+{
+  "name": "photobooth",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "photobooth.inwebsite.online", "custom_domain": true }],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*"]
+  },
+  "vars": {
+    // Tenant Auth0 bersama aplikasi InWebsite lain; keduanya publik.
+    "AUTH0_DOMAIN": "nehard.us.auth0.com",
+    // Kosong = login belum aktif (di lokal memakai login dev). Diisi setelah aplikasi Auth0-nya dibuat.
+    "AUTH0_CLIENT_ID": "",
+    // Login email + kata sandi (koneksi Username-Password-Authentication), sama seperti asset.inwebsite.online.
+    "EMAIL_LOGIN": "true",
+    "DAILY_LIMIT": "5"
+  },
+  // Batas percobaan login email per IP. namespace_id unik per akun Cloudflare (1001–1003, 4401 sudah dipakai proyek lain).
+  "ratelimits": [{ "name": "AUTH_LIMITER", "namespace_id": "5101", "simple": { "limit": 10, "period": 60 } }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "photobooth-db",
+      "database_id": "a3bc346a-6f6f-4794-8086-9d006d19e0ff",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": { "enabled": false }
+}

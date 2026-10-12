@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { FormatPicker } from '../components/FormatPicker'
 import { MiniStrip } from '../components/MiniStrip'
-import { ASPECTS, LAYOUTS, layoutById, photoCount, type AspectId } from '../lib/layouts'
+import { ASPECTS, FORMATS, LAYOUTS, layoutById, photoCount, type AspectId } from '../lib/layouts'
 import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
 import { renderInput, useBooth } from '../store'
 
@@ -26,7 +27,7 @@ export function StartPage() {
         }),
       })),
     // Thumbnail cukup mengikuti template & bentuk foto yang sedang dipilih.
-    [design.templateId, design.templateRightId, design.layoutId, design.aspect],
+    [design.templateId, design.templateRightId, design.layoutId, design.aspect, design.format],
   )
 
   async function openFile(file: File) {
@@ -45,6 +46,11 @@ export function StartPage() {
       <div className="mx-auto max-w-5xl px-4 pt-6 pb-32 sm:px-6">
         <h1 className="font-display text-3xl font-bold sm:text-4xl">Mau strip yang mana?</h1>
         <p className="mt-1 text-soft">Pilih jumlah frame. Template, filter, dan stiker bisa diganti nanti.</p>
+
+        <section className="mt-5">
+          <h2 className="mb-2 font-display text-lg font-bold">Mau dipakai buat apa?</h2>
+          <FormatPicker value={design.format} onChange={(format) => setDesign({ format })} />
+        </section>
 
         <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
           {thumbs.map(({ layout: l, input }) => {
@@ -144,7 +150,8 @@ export function StartPage() {
       <div className="fixed inset-x-0 bottom-0 border-t-2 border-ink bg-paper/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <p className="text-sm">
-            <b>{layout.name}</b> · {count} foto · <span className="text-soft">{layout.print}</span>
+            <b>{layout.name}</b> · {count} foto ·{' '}
+            <span className="text-soft">{design.format === 'cetak' ? layout.print : FORMATS[design.format].desc}</span>
           </p>
           <button className="btn bg-pop text-white" onClick={() => navigate('/app/foto')}>
             Mulai foto →

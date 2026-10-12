@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { FormatPicker } from '../components/FormatPicker'
 import { MiniStrip } from '../components/MiniStrip'
 import { StripEditor } from '../components/StripEditor'
 import { Toggle } from './Capture'
@@ -7,7 +8,7 @@ import { STICKER_PACKS } from '../data/stickers'
 import { applyFilter, FILTERS } from '../lib/filters'
 import { ASPECTS, layoutById, type AspectId } from '../lib/layouts'
 import type { Photo } from '../lib/render'
-import { CATEGORIES, FONTS, TEMPLATES, templateById, type Category } from '../lib/templates'
+import { CATEGORIES, FONTS, isIllustrated, TEMPLATES, templateById, type Category } from '../lib/templates'
 import { renderInput, useBooth } from '../store'
 
 type Tab = 'frame' | 'filter' | 'stiker' | 'teks' | 'atur'
@@ -25,7 +26,7 @@ const COLORS = ['#1f1a17', '#ffffff', '#ff4f6d', '#ffd166', '#7bdff2', '#9be8c6'
 export function EditPage() {
   const navigate = useNavigate()
   const state = useBooth()
-  const { design, photos, addOverlay, updateOverlay, removeOverlay } = state
+  const { design, photos, addOverlay, updateOverlay, removeOverlay, moveOverlay } = state
   const [tab, setTab] = useState<Tab>('frame')
   const [selected, setSelected] = useState<string | null>(null)
   const input = useMemo(() => renderInput({ design, photos }), [design, photos])
@@ -34,10 +35,16 @@ export function EditPage() {
 
   const selectedOverlay = design.overlays.find((o) => o.id === selected) ?? null
   const place = () => ({ x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.4, rot: Math.round(Math.random() * 20 - 10) })
+  // Ukuran awal stiker relatif terhadap lebar satu strip/region, supaya di strip sempit tidak kekecilan
+  // dan di grid lebar tidak kebesaran. Hasilnya pecahan dari lebar kanvas.
+  const sized = (base: number) => {
+    const rw = input.layout.width / input.layout.regions
+    return ((rw <= 700 ? base * 1.5 : base) * rw) / input.layout.width
+  }
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
-      <div className="relative min-h-0 flex-1 bg-[radial-gradient(circle_at_50%_40%,#fff_0%,#f6ead8_70%)] p-4 lg:p-8">
+      <div className="relative min-h-0 flex-1 bg-[radial-gradient(circle_at_50%_40%,#fff_0%,#f6ead8_70%)] lg:p-4">
         <StripEditor input={input} selected={selected} onSelect={setSelected} onChange={updateOverlay} onRemove={(id) => (removeOverlay(id), setSelected(null))} />
       </div>
 
@@ -56,19 +63,44 @@ export function EditPage() {
           ))}
         </nav>
 
+        {selectedOverlay && (
+          <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b-2 border-ink bg-sun/40 px-2 py-1.5 no-scrollbar" aria-label="Atur stiker terpilih">
+            <ToolBtn label="Kecilkan" onClick={() => updateOverlay(selectedOverlay.id, { size: Math.max(0.02, selectedOverlay.size / 1.15) })}>
+              −
+            </ToolBtn>
+            <ToolBtn label="Besarkan" onClick={() => updateOverlay(selectedOverlay.id, { size: Math.min(1.6, selectedOverlay.size * 1.15) })}>
+              +
+            </ToolBtn>
+            <ToolBtn label="Putar kiri" onClick={() => updateOverlay(selectedOverlay.id, { rot: selectedOverlay.rot - 15 })}>
+              ⟲
+            </ToolBtn>
+            <ToolBtn label="Putar kanan" onClick={() => updateOverlay(selectedOverlay.id, { rot: selectedOverlay.rot + 15 })}>
+              ⟳
+            </ToolBtn>
+            <ToolBtn label="Bawa ke depan" onClick={() => moveOverlay(selectedOverlay.id, 'front')} wide>
+              Ke depan
+            </ToolBtn>
+            <ToolBtn label="Kirim ke belakang" onClick={() => moveOverlay(selectedOverlay.id, 'back')} wide>
+              Ke belakang
+            </ToolBtn>
+            <ToolBtn label="Hapus stiker" onClick={() => (removeOverlay(selectedOverlay.id), setSelected(null))} wide danger>
+              Hapus
+            </ToolBtn>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {tab === 'frame' && <FramePanel />}
           {tab === 'filter' && <FilterPanel photo={photos.find(Boolean) ?? null} />}
           {tab === 'stiker' && (
             <StickerPanel
-              onEmoji={(e) => setSelected(addOverlay({ kind: 'emoji', text: e, size: 0.12, ...place() }))}
-              onImage={(src) => setSelected(addOverlay({ kind: 'image', src, size: 0.2, ...place() }))}
+              onEmoji={(e) => setSelected(addOverlay({ kind: 'emoji', text: e, size: sized(0.16), ...place() }))}
+              onImage={(src) => setSelected(addOverlay({ kind: 'image', src, size: sized(0.2), ...place() }))}
             />
           )}
           {tab === 'teks' && (
             <TextPanel
               selectedText={selectedOverlay?.kind === 'text' ? selectedOverlay : null}
-              onAdd={(text, font, color) => setSelected(addOverlay({ kind: 'text', text, font, color, size: 0.08, x: 0.5, y: 0.5, rot: 0 }))}
+              onAdd={(text, font, color) => setSelected(addOverlay({ kind: 'text', text, font, color, size: sized(0.09), x: 0.5, y: 0.5, rot: 0 }))}
               onEdit={(patch) => selected && updateOverlay(selected, patch)}
             />
           )}
@@ -90,11 +122,13 @@ export function EditPage() {
 
 function FramePanel() {
   const { design, photos, setDesign } = useBooth()
-  const [cat, setCat] = useState<Category | 'Semua'>('Semua')
+  const [cat, setCat] = useState<Category | 'Semua' | 'Ilustrasi'>('Semua')
   const layout = layoutById(design.layoutId)
   const [side, setSide] = useState<'both' | 'left' | 'right'>(design.templateRightId ? 'left' : 'both')
   const activeId = side === 'right' ? (design.templateRightId ?? design.templateId) : design.templateId
-  const list = cat === 'Semua' ? TEMPLATES : TEMPLATES.filter((t) => t.category === cat)
+  // Template bergambar ditampilkan lebih dulu.
+  const ordered = [...TEMPLATES.filter(isIllustrated), ...TEMPLATES.filter((t) => !isIllustrated(t))]
+  const list = cat === 'Semua' ? ordered : cat === 'Ilustrasi' ? ordered.filter(isIllustrated) : ordered.filter((t) => t.category === cat)
 
   const pick = (id: string) => {
     if (side === 'both') setDesign({ templateId: id, templateRightId: null })
@@ -114,7 +148,7 @@ function FramePanel() {
         return { t, input: renderInput({ design: d, photos }) }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cat, side, design.layoutId, design.aspect, design.photoMode, design.filterId, photos],
+    [cat, side, design.layoutId, design.aspect, design.photoMode, design.filterId, design.format, photos],
   )
 
   return (
@@ -265,6 +299,10 @@ function ArrangePanel() {
   return (
     <div className="space-y-4 text-sm">
       <div>
+        <p className="mb-2 font-bold">Ukuran hasil</p>
+        <FormatPicker value={design.format} onChange={(format) => setDesign({ format })} />
+      </div>
+      <div>
         <p className="font-bold">Bentuk foto</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(Object.keys(ASPECTS) as AspectId[]).map((a) => (
@@ -313,6 +351,19 @@ function ArrangePanel() {
         )}
       </div>
     </div>
+  )
+}
+
+function ToolBtn({ label, onClick, children, wide, danger }: { label: string; onClick: () => void; children: React.ReactNode; wide?: boolean; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`h-9 shrink-0 rounded-full border-2 border-ink text-sm font-bold ${wide ? 'px-3' : 'w-9 text-lg leading-none'} ${danger ? 'bg-pop text-white' : 'bg-paper'}`}
+    >
+      {children}
+    </button>
   )
 }
 

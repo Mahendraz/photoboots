@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { ASPECTS, layoutById, photoCount, type AspectId, type PhotoMode } from './lib/layouts'
+import { ASPECTS, layoutById, photoCount, resolveLayout, type AspectId, type FormatId, type PhotoMode } from './lib/layouts'
 import { filterById } from './lib/filters'
 import { templateById } from './lib/templates'
 import type { Overlay, Photo, RenderInput } from './lib/render'
@@ -9,6 +9,8 @@ export const newId = () => crypto.randomUUID().replace(/-/g, '').slice(0, 20)
 
 export interface Design {
   layoutId: string
+  /** Ukuran hasil: cetak (300 dpi) atau format sosmed. */
+  format: FormatId
   aspect: AspectId
   photoMode: PhotoMode
   templateId: string
@@ -50,6 +52,8 @@ interface BoothState {
   addOverlay: (o: Omit<Overlay, 'id'>) => string
   updateOverlay: (id: string, patch: Partial<Overlay>) => void
   removeOverlay: (id: string) => void
+  /** Pindahkan stiker ke paling depan / paling belakang tumpukan. */
+  moveOverlay: (id: string, to: 'front' | 'back') => void
   loadPatungan: (design: Design, photos: (Photo | null)[], from: string | null) => void
   /** Pulihkan sesi setelah kembali dari halaman login (ID strip dipertahankan supaya kuota tidak terhitung dua kali). */
   restore: (design: Design, photos: (Photo | null)[], stripId: string, from: string | null) => void
@@ -57,6 +61,7 @@ interface BoothState {
 
 const defaultDesign: Design = {
   layoutId: 'strip-4',
+  format: 'cetak',
   aspect: 'landscape',
   photoMode: 'beda',
   templateId: 'putih',
@@ -108,6 +113,13 @@ export const useBooth = create<BoothState>()(
       updateOverlay: (id, patch) =>
         set((s) => ({ design: { ...s.design, overlays: s.design.overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) } })),
       removeOverlay: (id) => set((s) => ({ design: { ...s.design, overlays: s.design.overlays.filter((o) => o.id !== id) } })),
+      moveOverlay: (id, to) =>
+        set((s) => {
+          const o = s.design.overlays.find((x) => x.id === id)
+          if (!o) return {}
+          const rest = s.design.overlays.filter((x) => x.id !== id)
+          return { design: { ...s.design, overlays: to === 'front' ? [...rest, o] : [o, ...rest] } }
+        }),
       loadPatungan: (design, photos, from) =>
         set(() => ({
           design,
@@ -144,7 +156,7 @@ export const useBooth = create<BoothState>()(
 /** Input render dari state saat ini. */
 export function renderInput(s: Pick<BoothState, 'design' | 'photos'>): RenderInput {
   const d = s.design
-  const layout = layoutById(d.layoutId)
+  const layout = resolveLayout(layoutById(d.layoutId), d.format ?? 'cetak', ASPECTS[d.aspect].ratio)
   const left = templateById(d.templateId)
   return {
     layout,

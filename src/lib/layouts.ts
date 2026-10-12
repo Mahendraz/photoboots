@@ -47,6 +47,48 @@ export const LAYOUTS: LayoutDef[] = [
 
 export const layoutById = (id: string) => LAYOUTS.find((l) => l.id === id) ?? LAYOUTS[1]
 
+/**
+ * Ukuran hasil. "cetak" memakai ukuran asli layout (300 dpi); sisanya ukuran standar media sosial.
+ * Di format sosmed, layout satu region disusun ulang (kolom × baris) supaya fotonya sebesar mungkin
+ * di kanvas itu; layout kiri–kanan tetap dua strip berdampingan.
+ */
+export type FormatId = 'cetak' | 'story' | 'feed' | 'square'
+export const FORMATS: Record<FormatId, { label: string; desc: string; width: number; height: number }> = {
+  cetak: { label: 'Cetak', desc: '300 dpi, strip 2×6" / 4R', width: 0, height: 0 },
+  story: { label: 'Story · Reels · TikTok', desc: '9:16 · 1080×1920', width: 1080, height: 1920 },
+  feed: { label: 'Feed IG', desc: '4:5 · 1080×1350', width: 1080, height: 1350 },
+  square: { label: 'Kotak', desc: '1:1 · 1080×1080', width: 1080, height: 1080 },
+}
+export const FORMAT_IDS = Object.keys(FORMATS) as FormatId[]
+
+/** Spasi acuan untuk memilih susunan terbaik (sama dengan template strip pada umumnya). */
+const REF_SPACING: Spacing = { pad: 34, gap: 22, header: 0, footer: 190 }
+
+export function resolveLayout(l: LayoutDef, format: FormatId, aspect: number): LayoutDef {
+  const f = FORMATS[format]
+  if (format === 'cetak' || !f) return l
+  const base = { ...l, width: f.width, height: f.height, print: `${f.label} · ${f.desc}` }
+  if (l.regions === 2) return base
+  // Susunan asli dipertahankan (strip tetap terlihat strip) kecuali susunan lain (tanpa slot kosong)
+  // membuat foto jauh lebih besar, mis. strip 4 di kanvas kotak menjadi 2 × 2.
+  const n = l.cols * l.rows
+  const slotArea = (cols: number) => {
+    const g = regionGeometry({ ...base, cols, rows: n / cols }, { x: 0, y: 0, w: f.width, h: f.height }, aspect, REF_SPACING)
+    return g.slots[0].w * g.slots[0].h
+  }
+  let best = base
+  let bestArea = slotArea(l.cols) * 1.3
+  for (let cols = 1; cols <= n; cols++) {
+    if (n % cols || cols === l.cols) continue
+    const area = slotArea(cols)
+    if (area > bestArea) {
+      best = { ...base, cols, rows: n / cols }
+      bestArea = area
+    }
+  }
+  return best
+}
+
 export interface Rect {
   x: number
   y: number
@@ -95,7 +137,9 @@ export function regionRects(l: LayoutDef): Rect[] {
  * sisa tinggi menjadi area footer untuk tulisan/tanggal/stiker template.
  */
 export function regionGeometry(l: LayoutDef, region: Rect, aspect: number, sp: Spacing): RegionGeometry {
-  const unit = region.w / 600
+  // Satuan desain: region selebar 600 (strip) = 1. Dibatasi tinggi juga supaya kanvas pendek (1:1, 4:5)
+  // tidak mendapat footer & margin yang terlalu besar. Untuk ukuran cetak hasilnya sama dengan lebar/600.
+  const unit = Math.min(region.w / 600, region.h / 900)
   const pad = sp.pad * unit
   const gap = sp.gap * unit
   const header = sp.header * unit
@@ -113,9 +157,10 @@ export function regionGeometry(l: LayoutDef, region: Rect, aspect: number, sp: S
   const totalW = slotW * cols + gap * (cols - 1)
   const totalH = slotH * rows + gap * (rows - 1)
   const x0 = region.x + pad + (contentW - totalW) / 2
-  // Kalau masih banyak ruang kosong, slot digeser sedikit ke bawah supaya tidak terlalu mepet ke atas.
+  // Sisa tinggi dibagi: sebagian di atas foto, sisanya untuk area tulisan di bawah, supaya di kanvas
+  // tinggi (Story 9:16) foto tidak menumpuk di atas dengan ruang kosong besar di bawah.
   const spare = contentH - totalH
-  const y0 = region.y + pad + header + Math.min(spare * 0.25, 40 * unit)
+  const y0 = region.y + pad + header + spare * 0.35
 
   const slots: Rect[] = []
   for (let r = 0; r < rows; r++)

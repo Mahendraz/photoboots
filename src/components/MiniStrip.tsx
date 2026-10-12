@@ -10,7 +10,7 @@ export function MiniStrip({ input, scale, className = '', placeholders = true }:
     const draw = () => ref.current && renderStrip(ref.current, input, { scale, placeholders })
     // Tunda sedikit supaya banyak thumbnail tidak memblokir satu frame sekaligus.
     const id = requestAnimationFrame(draw)
-    preloadAll(input).then(() => alive && draw())
+    preloadAll(input, scale).then(() => alive && draw())
     document.fonts?.ready.then(() => alive && draw())
     return () => {
       alive = false

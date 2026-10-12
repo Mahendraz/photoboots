@@ -5,13 +5,16 @@ import { QuotaBar } from '../components/LoginSheet'
 import { loginPath, useAuth } from '../lib/api'
 import { downloadBlob, fileName, hasLive, renderBlob, renderGif, type Format } from '../lib/export'
 import { sendPatungan } from '../lib/share'
+import { FORMAT_IDS, FORMATS, type FormatId } from '../lib/layouts'
 import { renderInput, useBooth } from '../store'
+
+const SHORT: Record<FormatId, string> = { cetak: 'Cetak', story: 'Story/TikTok', feed: 'Feed', square: 'Kotak' }
 
 type Busy = 'png' | 'jpg' | 'gif' | 'share' | null
 
 export function ResultPage() {
   const navigate = useNavigate()
-  const { design, photos, stripId, resetPhotos } = useBooth()
+  const { design, photos, stripId, resetPhotos, setDesign } = useBooth()
   const { user, quota, claimStrip } = useAuth()
   const input = useMemo(() => renderInput({ design, photos }), [design, photos])
   const [hd, setHd] = useState(false)
@@ -54,7 +57,7 @@ export function ResultPage() {
       const blob =
         kind === 'gif'
           ? await renderGif(input, { watermark, onProgress: setProgress })
-          : await renderBlob(input, { scale: hd ? 2 : 1, watermark, format: kind as Format })
+          : await renderBlob(input, { scale: k, watermark, format: kind as Format })
       setLast(blob)
       downloadBlob(blob, fileName(kind))
     } catch (e) {
@@ -80,7 +83,8 @@ export function ResultPage() {
   }
 
   const canShare = !!last && typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([last], 'x.png', { type: last.type })] })
-  const px = `${input.layout.width * (hd ? 2 : 1)}×${input.layout.height * (hd ? 2 : 1)}`
+  const k = design.format === 'cetak' && hd ? 2 : 1
+  const px = `${input.layout.width * k}×${input.layout.height * k}`
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 overflow-y-auto p-4 lg:flex-row lg:p-6">
@@ -102,18 +106,29 @@ export function ResultPage() {
             </p>
           )}
 
-          <div className="flex items-center justify-between text-sm">
-            <span>
-              Ukuran <span className="text-soft">({px} px)</span>
-            </span>
-            <div className="flex rounded-full border-2 border-ink p-0.5 font-bold">
-              <button onClick={() => setHd(false)} aria-pressed={!hd} className={`rounded-full px-3 py-1 ${!hd ? 'bg-ink text-cream' : ''}`}>
-                Cetak
-              </button>
-              <button onClick={() => setHd(true)} aria-pressed={hd} className={`rounded-full px-3 py-1 ${hd ? 'bg-ink text-cream' : ''}`}>
-                HD 2×
-              </button>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold">Ukuran</span>
+              <span className="text-soft tabular-nums">{px} px</span>
             </div>
+            <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-full border-2 border-ink p-0.5 font-bold">
+              {FORMAT_IDS.map((id) => (
+                <button
+                  key={id}
+                  onClick={() => setDesign({ format: id })}
+                  aria-pressed={design.format === id}
+                  className={`shrink-0 flex-1 rounded-full px-3 py-1 whitespace-nowrap ${design.format === id ? 'bg-ink text-cream' : ''}`}
+                >
+                  {SHORT[id]}
+                </button>
+              ))}
+            </div>
+            {design.format === 'cetak' && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={hd} onChange={(e) => setHd(e.target.checked)} className="size-4 accent-ink" />
+                HD 2× (600 dpi, berkas lebih besar)
+              </label>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -136,7 +151,8 @@ export function ResultPage() {
           </div>
           {error && <p className="text-sm font-semibold text-pop-dark">{error}</p>}
           <p className="text-xs text-soft">
-            Siap cetak 300 dpi: {input.layout.print}. Unduh ulang, ganti format, atau ubah stiker strip yang sama tidak memakan jatah.
+            {design.format === 'cetak' ? `Siap cetak 300 dpi: ${input.layout.print}.` : `Pas untuk ${FORMATS[design.format].label}.`} Unduh ulang, ganti
+            ukuran/format, atau ubah stiker strip yang sama tidak memakan jatah.
           </p>
         </div>
 

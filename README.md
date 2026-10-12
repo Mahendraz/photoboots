@@ -4,8 +4,12 @@ Photobooth gratis di browser untuk `photobooth.inwebsite.online`. Pengguna memil
 
 - **Layout**: Strip 3 & 4, Kiri–Kanan 6/8/10 (dua strip di kertas 4R, isinya kembar atau beda, frame kiri & kanan bisa beda), Grid 4/6/8/9/10, Polaroid.
 - **Bentuk foto**: landscape 4:3, portrait 3:4, kotak, 16:9, 4:5.
-- **Hasil**: JPG/PNG 300 dpi (strip 600×1800, 4R 1200×1800; opsi HD 2×) dan GIF live (tiap frame bergerak).
-- **Hias**: 50 template frame (digambar kode, tanpa berkas gambar), 14 filter, 514 stiker sprinkle InWebAsset + emoji, teks footer, tanggal, teks bebas.
+- **Ukuran hasil**: Cetak 300 dpi (strip 600×1800, 4R 1200×1800; opsi HD 2×), Story/Reels/TikTok 1080×1920,
+  Feed IG 1080×1350, Kotak 1080×1080. Di format sosmed layout satu region disusun ulang otomatis (mis. strip 4 → 2×2 di kotak).
+  Plus GIF live (tiap frame bergerak).
+- **Hias**: 58 template frame — 23 dengan latar ilustrasi (generate Codex, `public/frames/`), sisanya digambar kode —
+  14 filter, 514 stiker sprinkle InWebAsset + emoji, teks footer, tanggal, teks bebas. Stiker bisa digeser, dicubit dua jari,
+  diputar, dan diatur urutan depan/belakang.
 - **Patungan**: foto bareng teman dari jauh tanpa server. Satu orang mengisi sebagian frame lalu mengirim berkas patungan (.txt berisi JSON) lewat WhatsApp; temannya membuka berkas itu di web ini dan mengisi sisanya.
 - **Kuota**: login (Google atau email + kata sandi lewat Auth0), gratis 5 strip/hari tanpa watermark (reset 00.00 WIB). Setelah itu tetap bisa unduh, tapi diberi watermark.
 
@@ -51,6 +55,8 @@ src/lib/filters.ts     filter berbasis piksel (sama di semua browser)
 src/lib/export.ts      unduh JPG/PNG, encoder GIF live
 src/lib/patungan.ts    format berkas patungan
 src/data/stickers.ts   katalog stiker sprinkle (tanpa makanan/minuman)
+public/frames/         latar ilustrasi template: <id>.webp (1200×1800) + <id>-kecil.webp (thumbnail)
+scripts/frames.py      olah PNG hasil generate → dua berkas webp di atas
 src/pages/             Start (layout) → Capture (foto) → Edit (hias) → Result (unduh), Login (/app/masuk)
 ```
 
@@ -71,11 +77,19 @@ npm run dev                            # http://localhost:5173/app
 - D1 `photobooth-db` (`a3bc346a-…`). Migrasi baru: `npm run db:migrate:remote`.
 - Secret Worker: `SESSION_SECRET`, `AUTH0_CLIENT_SECRET`.
 - Aplikasi Auth0 `photobooth` di tenant `nehard.us.auth0.com` (client ID di `wrangler.jsonc`):
-  Regular Web Application, grant `authorization_code` + `password`, Trust Token Endpoint IP Header aktif,
+  Regular Web Application, grant `authorization_code` + `password` + `http://auth0.com/oauth/grant-type/password-realm`
+  (wajib untuk login email; tanpa grant ini /auth/email/login membalas 502), Trust Token Endpoint IP Header aktif,
   koneksi `google-oauth2` + `Username-Password-Authentication`.
   - Allowed Callback URLs: `https://photobooth.inwebsite.online/auth/callback, http://localhost:5173/auth/callback`
   - Allowed Logout URLs: `https://photobooth.inwebsite.online/, http://localhost:5173/`
   - Allowed Web Origins: `https://photobooth.inwebsite.online`
+
+## Menambah latar ilustrasi
+
+1. Generate gambar 2:3 (mis. 1024×1536) berpola merata ke seluruh kanvas, tanpa teks, tanpa makanan/minuman, tanpa orang.
+   Foto akan menutupi bagian tengah, jadi yang terlihat hanya pinggir, sela antar foto, dan area tulisan.
+2. Simpan sebagai `<id>.png` di satu folder, lalu `python scripts/frames.py <folder> [id ...]`.
+3. Pakai di `src/lib/templates.ts`: `bg: { color, image: '<id>' }` (lihat `art(...)` dan `UPGRADES`).
 
 ## Catatan
 

@@ -77,15 +77,21 @@ export function loadImage(src: string): Promise<HTMLImageElement | null> {
   return p
 }
 
+/** Latar bergambar template: versi kecil untuk thumbnail, versi penuh untuk pratinjau & ekspor. */
+export const frameImageUrl = (id: string, scale: number) => (scale <= 0.15 ? `/frames/${id}-kecil.webp` : `/frames/${id}.webp`)
+
 /** Semua URL gambar yang dibutuhkan satu render (untuk dimuat dulu sebelum ekspor). */
-export function imageUrls(input: RenderInput) {
+export function imageUrls(input: RenderInput, scale = 1) {
   const urls = new Set<string>()
-  for (const t of input.templates) for (const d of t.decor ?? []) urls.add(d.src)
+  for (const t of input.templates) {
+    for (const d of t.decor ?? []) urls.add(d.src)
+    if (t.bg.image) urls.add(frameImageUrl(t.bg.image, scale))
+  }
   for (const o of input.overlays) if (o.kind === 'image' && o.src) urls.add(o.src)
   return [...urls]
 }
 
-export const preloadAll = (input: RenderInput) => Promise.all(imageUrls(input).map(loadImage))
+export const preloadAll = (input: RenderInput, scale = 1) => Promise.all(imageUrls(input, scale).map(loadImage))
 
 export async function waitFonts(fonts: string[]) {
   if (!document.fonts) return
@@ -156,6 +162,14 @@ function fillBackground(ctx: CanvasRenderingContext2D, r: Rect, bg: Template['bg
     ctx.fillStyle = bg.color
   }
   ctx.fillRect(r.x, r.y, r.w, r.h)
+}
+
+/** Gambar menutupi seluruh rect (object-fit: cover), dipotong di tengah. */
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, r: Rect) {
+  const k = Math.max(r.w / img.naturalWidth, r.h / img.naturalHeight)
+  const sw = r.w / k
+  const sh = r.h / k
+  ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, r.x, r.y, r.w, r.h)
 }
 
 function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
@@ -604,6 +618,10 @@ const formatDate = (d = new Date()) =>
 function drawRegion(ctx: CanvasRenderingContext2D, input: RenderInput, t: Template, g: RegionGeometry, slotOffset: number, opts: RenderOptions) {
   const { region, unit } = g
   fillBackground(ctx, region, t.bg)
+  if (t.bg.image) {
+    const art = images.get(frameImageUrl(t.bg.image, opts.scale)) ?? images.get(frameImageUrl(t.bg.image, 1)) ?? images.get(frameImageUrl(t.bg.image, 0))
+    if (art) drawCover(ctx, art, region)
+  }
   drawPattern(ctx, region, t.bg, unit, `${t.id}-${slotOffset}`)
 
   g.slots.forEach((slot, i) => {

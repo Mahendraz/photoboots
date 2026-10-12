@@ -45,6 +45,8 @@ export interface Template {
   category: Category
   bg: {
     color: string
+    /** Latar bergambar (berkas public/frames/<image>.webp, dipotong menutupi region). */
+    image?: string
     /** Warna kedua untuk gradien vertikal/diagonal. */
     color2?: string
     angle?: number
@@ -100,7 +102,7 @@ const text = (
   extra: Partial<Template['text']> = {},
 ): Template['text'] => ({ font, color, size, default: def, ...extra })
 
-export const TEMPLATES: Template[] = [
+const BASE: Template[] = [
   // ---------------------------------------------------------------- Simpel
   { id: 'putih', name: 'Putih Bersih', category: 'Simpel', bg: { color: '#ffffff' }, spacing: SP_STRIP, slot: plain(), text: text('Plus Jakarta Sans', '#1f1a17', 34, 'photobooth', { caps: true, tracking: 10, weight: '700' }) },
   { id: 'hitam', name: 'Hitam Klasik', category: 'Simpel', bg: { color: '#141414' }, spacing: SP_STRIP, slot: plain(), text: text('Plus Jakarta Sans', '#f5f0e8', 34, 'photobooth', { caps: true, tracking: 10, weight: '700' }) },
@@ -172,6 +174,71 @@ export const TEMPLATES: Template[] = [
   { id: 'scrapbook', name: 'Scrapbook', category: 'Pola', bg: { color: '#f5ebe0', pattern: 'grid', patternColor: '#a98467', patternAlpha: 0.25 }, spacing: SP_STRIP, slot: { style: 'tape', radius: 0, border: 10, borderColor: '#ffffff', shadow: true }, text: text('Caveat', '#6c584c', 64, 'dear diary'), decor: [{ src: sp('paper/stamp-flower'), anchor: 'fr', size: 110, rot: 8 }] },
   { id: 'perangko', name: 'Perangko', category: 'Pola', bg: { color: '#e9edc9' }, spacing: SP_STRIP, slot: { style: 'stamp', radius: 0, border: 16, borderColor: '#ffffff', shadow: true }, text: text('DM Serif Display', '#606c38', 48, 'greetings from') },
 ]
+
+// ---------------------------------------------------------------- Ilustrasi (latar hasil generate Codex, public/frames)
+
+/** Slot & tulisan untuk latar bergambar: bingkai putih + bayangan dan pelat di belakang tulisan supaya tetap terbaca. */
+const ART_SLOT: Template['slot'] = { style: 'plain', radius: 12, border: 10, borderColor: '#ffffff', shadow: true }
+const SP_ART: Spacing = { pad: 50, gap: 26, header: 0, footer: 200 }
+
+/** Template lama yang latarnya diganti ilustrasi (id tetap, jadi pilihan pengguna tidak berubah). */
+const UPGRADES: Record<string, { image: string; color: string; plate: string; text?: Partial<Template['text']>; slot?: Template['slot'] }> = {
+  wedding: { image: 'watercolor-roses', color: '#f6efe3', plate: '#fffaf2', slot: { style: 'arch', radius: 0, border: 0, borderColor: '#fff' } },
+  kawaii: { image: 'kawaii-doodle', color: '#ffe3ee', plate: '#ffffff' },
+  'baby-blue': { image: 'cloud-sky', color: '#d3ecff', plate: '#ffffff' },
+  'luar-angkasa': { image: 'galaxy', color: '#14123a', plate: 'rgba(12, 10, 40, 0.78)' },
+  seventies: { image: 'groovy-70s', color: '#f4a259', plate: '#fef3dd', text: { color: '#bc4b51' } },
+  'gingham-merah': { image: 'picnic-daisy', color: '#ffffff', plate: '#ffffff' },
+  marmer: { image: 'marble-gold', color: '#f4f1ee', plate: 'rgba(255, 255, 255, 0.85)', slot: { style: 'plain', radius: 2, border: 6, borderColor: '#c8b38a', shadow: true } },
+  lebaran: { image: 'lebaran', color: '#0b5d3b', plate: 'rgba(8, 64, 40, 0.88)' },
+  merdeka: { image: 'merdeka', color: '#fff5f5', plate: '#ffffff', slot: { style: 'plain', radius: 8, border: 10, borderColor: '#ffffff', shadow: true } },
+  natal: { image: 'christmas', color: '#1e5631', plate: 'rgba(20, 60, 34, 0.88)' },
+  imlek: { image: 'imlek', color: '#b5121b', plate: 'rgba(140, 10, 20, 0.9)' },
+  valentine: { image: 'valentine', color: '#ffccd5', plate: '#ffffff' },
+  halloween: { image: 'halloween-cute', color: '#3c2a4d', plate: 'rgba(30, 18, 40, 0.88)' },
+  ultah: { image: 'birthday', color: '#fff4e6', plate: '#ffffff' },
+  scrapbook: { image: 'scrapbook', color: '#f5ebe0', plate: '#fffdf5', slot: { style: 'tape', radius: 0, border: 10, borderColor: '#ffffff', shadow: true } },
+}
+
+const upgraded: Template[] = BASE.map((t) => {
+  const u = UPGRADES[t.id]
+  if (!u) return t
+  return {
+    ...t,
+    bg: { color: u.color, image: u.image },
+    spacing: SP_ART,
+    slot: u.slot ?? ART_SLOT,
+    text: { ...t.text, ...u.text, plate: u.plate },
+    header: undefined,
+    decor: undefined,
+  }
+})
+
+const art = (id: string, name: string, category: Category, image: string, color: string, text: Template['text'], slot: Template['slot'] = ART_SLOT): Template => ({
+  id,
+  name,
+  category,
+  bg: { color, image },
+  spacing: SP_ART,
+  slot,
+  text,
+})
+
+const ART: Template[] = [
+  art('mawar', 'Mawar', 'Pastel', 'watercolor-roses', '#f6efe3', text('Dancing Script', '#b5536b', 62, 'sweet memories', { plate: '#fffaf2' }), { style: 'polaroid', radius: 2, border: 14, borderColor: '#ffffff', shadow: true }),
+  art('herbarium', 'Herbarium', 'Elegan', 'dried-flowers', '#f3eee4', text('DM Serif Display', '#5e503f', 48, 'pressed memories', { plate: '#fbf6ec' })),
+  art('y2k', 'Y2K Chrome', 'Lucu', 'y2k-chrome', '#e6dcff', text('Bebas Neue', '#6741d9', 76, 'Y2K BESTIES', { tracking: 5, plate: '#ffffff' }), { style: 'plain', radius: 24, border: 10, borderColor: '#ffffff', shadow: true }),
+  art('pantai', 'Pantai', 'Lucu', 'beach', '#bfeff0', text('Fredoka', '#0b7285', 58, 'beach day', { weight: '700', plate: '#ffffff' })),
+  art('tropis', 'Tropis', 'Lucu', 'tropical', '#dfe9d8', text('Fredoka', '#2d6a4f', 58, 'tropical vibes', { weight: '700', plate: '#ffffff' })),
+  art('synthwave', 'Synthwave', 'Gelap', 'synthwave', '#1a1033', text('Bebas Neue', '#ff2a6d', 80, 'NIGHT DRIVE', { tracking: 6, plate: 'rgba(13, 2, 33, 0.85)' }), { style: 'plain', radius: 4, border: 6, borderColor: '#00f5d4', shadow: true }),
+  art('galaksi', 'Galaksi', 'Gelap', 'galaxy', '#14123a', text('Space Mono', '#f1e9ff', 32, 'LOST IN SPACE', { tracking: 6, weight: '700', plate: 'rgba(12, 10, 40, 0.78)' }), { style: 'plain', radius: 100, border: 6, borderColor: '#ffffff', shadow: true }),
+  art('awan-pink', 'Awan Pink', 'Pastel', 'cloud-sky', '#e8ddff', text('Pacifico', '#c2255c', 52, 'head in the clouds', { plate: '#ffffff' }), { style: 'arch', radius: 0, border: 0, borderColor: '#fff' }),
+]
+
+export const TEMPLATES: Template[] = [...upgraded, ...ART]
+
+/** Kategori virtual "Ilustrasi": semua template dengan latar bergambar. */
+export const isIllustrated = (t: Template) => Boolean(t.bg.image)
 
 export const templateById = (id: string) => TEMPLATES.find((t) => t.id === id) ?? TEMPLATES[0]
 

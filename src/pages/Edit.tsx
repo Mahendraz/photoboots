@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router'
+import { Navigate } from 'react-router'
+import { useStepNav } from '../components/Curtain'
 import { FormatPicker } from '../components/FormatPicker'
 import { MiniStrip } from '../components/MiniStrip'
+import { PillTabs, type PillTab } from '../components/PillTabs'
 import { StripEditor } from '../components/StripEditor'
 import { Toggle } from './Capture'
 import { STICKER_PACKS } from '../data/stickers'
@@ -12,23 +14,25 @@ import { CATEGORIES, FONTS, isIllustrated, TEMPLATES, templateById, type Categor
 import { renderInput, useBooth } from '../store'
 
 type Tab = 'frame' | 'filter' | 'stiker' | 'teks' | 'atur'
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'frame', label: 'Frame' },
-  { id: 'filter', label: 'Filter' },
-  { id: 'stiker', label: 'Stiker' },
-  { id: 'teks', label: 'Teks' },
-  { id: 'atur', label: 'Atur' },
+const ICON = 'https://inassetweb-cdn.inwebsite.online/sprinkles'
+const TABS: PillTab<Tab>[] = [
+  { id: 'frame', label: 'Frame', icon: `${ICON}/v2/icons/paint-palette.webp`, color: '#ffd166', ink: 'var(--color-ink)' },
+  { id: 'filter', label: 'Filter', icon: `${ICON}/v1/icons/ai-magic-wand.webp`, color: '#7bdff2', ink: 'var(--color-ink)' },
+  { id: 'stiker', label: 'Stiker', icon: `${ICON}/v2/icons/heart.webp`, color: '#ff4f6d', ink: '#fff' },
+  { id: 'teks', label: 'Teks', icon: `${ICON}/v2/icons/pencil.webp`, color: '#9be8c6', ink: 'var(--color-ink)' },
+  { id: 'atur', label: 'Atur', icon: `${ICON}/v2/icons/gear.webp`, color: '#ecdcc8', ink: 'var(--color-ink)' },
 ]
 
 const EMOJI = ['😍', '🥰', '😎', '🤪', '😜', '🥳', '😂', '🙈', '😘', '🤍', '🖤', '💖', '💕', '🫶', '✨', '⭐', '🌈', '🔥', '🎉', '📸', '🎀', '🦋', '🌸', '💐', '👑', '💋', '💯', '👻', '🐶', '🐱', '🌙', '☀️']
 const COLORS = ['#1f1a17', '#ffffff', '#ff4f6d', '#ffd166', '#7bdff2', '#9be8c6', '#6741d9', '#c9a227', '#e8590c', '#1864ab']
 
 export function EditPage() {
-  const navigate = useNavigate()
+  const stepTo = useStepNav()
   const state = useBooth()
   const { design, photos, addOverlay, updateOverlay, removeOverlay, moveOverlay } = state
   const [tab, setTab] = useState<Tab>('frame')
   const [selected, setSelected] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const input = useMemo(() => renderInput({ design, photos }), [design, photos])
 
   if (!photos.some(Boolean)) return <Navigate to="/app/foto" replace />
@@ -49,19 +53,7 @@ export function EditPage() {
       </div>
 
       <aside className="flex h-[46dvh] shrink-0 flex-col border-t-2 border-ink bg-paper lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l-2">
-        <nav className="no-scrollbar flex shrink-0 gap-1 overflow-x-auto border-b-2 border-ink px-2 pt-2" role="tablist">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={`shrink-0 rounded-t-xl border-2 border-b-0 px-4 py-2 text-sm font-bold ${tab === t.id ? 'border-ink bg-sun' : 'border-transparent text-soft'}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
+        <PillTabs tabs={TABS} value={tab} onChange={setTab} label="Alat hias" panel={panelRef} />
 
         {selectedOverlay && (
           <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b-2 border-ink bg-sun/40 px-2 py-1.5 no-scrollbar" aria-label="Atur stiker terpilih">
@@ -88,30 +80,32 @@ export function EditPage() {
             </ToolBtn>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {tab === 'frame' && <FramePanel />}
-          {tab === 'filter' && <FilterPanel photo={photos.find(Boolean) ?? null} />}
-          {tab === 'stiker' && (
-            <StickerPanel
-              onEmoji={(e) => setSelected(addOverlay({ kind: 'emoji', text: e, size: sized(0.16), ...place() }))}
-              onImage={(src) => setSelected(addOverlay({ kind: 'image', src, size: sized(0.2), ...place() }))}
-            />
-          )}
-          {tab === 'teks' && (
-            <TextPanel
-              selectedText={selectedOverlay?.kind === 'text' ? selectedOverlay : null}
-              onAdd={(text, font, color) => setSelected(addOverlay({ kind: 'text', text, font, color, size: sized(0.09), x: 0.5, y: 0.5, rot: 0 }))}
-              onEdit={(patch) => selected && updateOverlay(selected, patch)}
-            />
-          )}
-          {tab === 'atur' && <ArrangePanel />}
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3">
+          <div ref={panelRef} role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label}>
+            {tab === 'frame' && <FramePanel />}
+            {tab === 'filter' && <FilterPanel photo={photos.find(Boolean) ?? null} />}
+            {tab === 'stiker' && (
+              <StickerPanel
+                onEmoji={(e) => setSelected(addOverlay({ kind: 'emoji', text: e, size: sized(0.16), ...place() }))}
+                onImage={(src) => setSelected(addOverlay({ kind: 'image', src, size: sized(0.2), ...place() }))}
+              />
+            )}
+            {tab === 'teks' && (
+              <TextPanel
+                selectedText={selectedOverlay?.kind === 'text' ? selectedOverlay : null}
+                onAdd={(text, font, color) => setSelected(addOverlay({ kind: 'text', text, font, color, size: sized(0.09), x: 0.5, y: 0.5, rot: 0 }))}
+                onEdit={(patch) => selected && updateOverlay(selected, patch)}
+              />
+            )}
+            {tab === 'atur' && <ArrangePanel />}
+          </div>
         </div>
 
         <div className="flex shrink-0 gap-2 border-t-2 border-ink p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <button className="btn bg-paper px-3 text-sm" onClick={() => navigate('/app/foto')}>
+          <button className="btn bg-paper px-3 text-sm" onClick={(e) => stepTo('/app/foto', e)}>
             ← Foto
           </button>
-          <button className="btn flex-1 bg-pop text-white" onClick={() => (setSelected(null), navigate('/app/unduh'))}>
+          <button className="btn flex-1 bg-pop text-white" onClick={(e) => (setSelected(null), stepTo('/app/unduh', e))}>
             Selesai, unduh →
           </button>
         </div>
@@ -293,7 +287,7 @@ function TextPanel({
 }
 
 function ArrangePanel() {
-  const navigate = useNavigate()
+  const stepTo = useStepNav()
   const { design, photos, setDesign } = useBooth()
   const layout = layoutById(design.layoutId)
   return (
@@ -341,7 +335,7 @@ function ArrangePanel() {
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <button className="btn bg-paper text-sm" onClick={() => navigate('/app')}>
+        <button className="btn bg-paper text-sm" onClick={(e) => stepTo('/app', e)}>
           Ganti layout
         </button>
         {design.overlays.length > 0 && (

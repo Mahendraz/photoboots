@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { CameraGate } from '../components/CameraGate'
+import { useStepNav } from '../components/Curtain'
 import { PhotoThumb } from '../components/PhotoThumb'
 import { ASPECTS, layoutById } from '../lib/layouts'
 import { beep, burst, fileToPhoto, openCamera, shutter, snap, stopStream, unlockAudio } from '../lib/media'
@@ -10,7 +11,7 @@ import { newId, useBooth } from '../store'
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export function CapturePage() {
-  const navigate = useNavigate()
+  const stepTo = useStepNav()
   const { design, settings, photos, setPhoto, setSettings, patunganFrom } = useBooth()
   const user = useAuth((s) => s.user)
   const layout = layoutById(design.layoutId)
@@ -23,6 +24,7 @@ export function CapturePage() {
 
   const [camError, setCamError] = useState<string | null>(null)
   const [camReady, setCamReady] = useState(false)
+  const [camTry, setCamTry] = useState(0)
   const [count, setCount] = useState<number | null>(null)
   const [flashKey, setFlashKey] = useState(0)
   const [running, setRunning] = useState(false)
@@ -68,7 +70,7 @@ export function CapturePage() {
       stopStream(streamRef.current)
       streamRef.current = null
     }
-  }, [settings.facing])
+  }, [settings.facing, camTry])
 
   useEffect(() => () => void (cancelRef.current = true), [])
 
@@ -145,8 +147,12 @@ export function CapturePage() {
             className="size-full object-cover"
             style={{ transform: settings.mirror ? 'scaleX(-1)' : undefined }}
           />
-          {!camReady && !camError && <div className="absolute inset-0 grid place-items-center text-cream/80">Membuka kamera…</div>}
-          {camError && <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-cream">{camError}</div>}
+          <CameraGate
+            state={camError ? 'error' : camReady ? 'ready' : 'opening'}
+            message={camError}
+            onUpload={() => fileRef.current?.click()}
+            onRetry={() => setCamTry((n) => n + 1)}
+          />
           {count !== null && (
             <div key={`c${count}`} className="anim-pop absolute inset-0 grid place-items-center font-display text-[min(30vw,180px)] font-bold text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">
               {count}
@@ -154,7 +160,7 @@ export function CapturePage() {
           )}
           {flashKey > 0 && <div key={`f${flashKey}`} className="anim-flash pointer-events-none absolute inset-0 bg-white opacity-0" />}
           {running && (
-            <span className="absolute top-3 left-3 rounded-full bg-pop px-3 py-1 text-xs font-bold text-white">
+            <span className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-pop px-3 py-1 text-xs font-bold text-white">
               ● {filled}/{photos.length}
             </span>
           )}
@@ -259,7 +265,7 @@ export function CapturePage() {
           </div>
         )}
 
-        <button className="btn bg-ink text-cream" disabled={!filled || running} onClick={() => navigate('/app/hias')}>
+        <button className="btn bg-ink text-cream" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
           Lanjut hias →{empties.length > 0 && filled > 0 && <span className="text-xs font-normal opacity-70">({empties.length} kosong)</span>}
         </button>
         <p className="text-center text-xs text-soft">

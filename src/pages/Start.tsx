@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useStepNav } from '../components/Curtain'
 import { FormatPicker } from '../components/FormatPicker'
 import { MiniStrip } from '../components/MiniStrip'
 import { ASPECTS, FORMATS, LAYOUTS, layoutById, photoCount, type AspectId } from '../lib/layouts'
@@ -7,7 +7,7 @@ import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
 import { renderInput, useBooth } from '../store'
 
 export function StartPage() {
-  const navigate = useNavigate()
+  const stepTo = useStepNav()
   const design = useBooth((s) => s.design)
   const setLayout = useBooth((s) => s.setLayout)
   const setDesign = useBooth((s) => s.setDesign)
@@ -35,7 +35,7 @@ export function StartPage() {
     try {
       const p = await readPatungan(file)
       loadPatungan(p.design, p.photos, p.from)
-      navigate('/app/foto')
+      stepTo('/app/foto')
     } catch (e) {
       setError((e as Error).message)
     }
@@ -153,7 +153,7 @@ export function StartPage() {
             <b>{layout.name}</b> · {count} foto ·{' '}
             <span className="text-soft">{design.format === 'cetak' ? layout.print : FORMATS[design.format].desc}</span>
           </p>
-          <button className="btn bg-pop text-white" onClick={() => navigate('/app/foto')}>
+          <button className="btn bg-pop text-white" onClick={(e) => stepTo('/app/foto', e)}>
             Mulai foto →
           </button>
         </div>

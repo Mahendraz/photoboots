@@ -4,8 +4,6 @@ import { createBrowserRouter, Navigate, RouterProvider } from 'react-router'
 import './index.css'
 import { AppShell } from './components/AppShell'
 import { StartPage } from './pages/Start'
-import { CapturePage } from './pages/Capture'
-import { LoginPage } from './pages/Login'
 
 const router = createBrowserRouter([
   // Belum ada landing page: semua pengunjung langsung ke aplikasi.
@@ -15,9 +13,10 @@ const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <StartPage /> },
-      { path: 'foto', element: <CapturePage /> },
-      { path: 'masuk', element: <LoginPage /> },
-      // Halaman hias (katalog stiker) & unduh (encoder GIF) dimuat belakangan supaya pembukaan pertama ringan.
+      // Halaman selain layout dimuat belakangan (kamera, katalog stiker, encoder GIF, animasi GSAP)
+      // supaya pembukaan pertama ringan; tirai antar langkah menutupi saat memuatnya.
+      { path: 'foto', lazy: () => import('./pages/Capture').then((m) => ({ Component: m.CapturePage })) },
+      { path: 'masuk', lazy: () => import('./pages/Login').then((m) => ({ Component: m.LoginPage })) },
       { path: 'hias', lazy: () => import('./pages/Edit').then((m) => ({ Component: m.EditPage })) },
       { path: 'unduh', lazy: () => import('./pages/Result').then((m) => ({ Component: m.ResultPage })) },
     ],

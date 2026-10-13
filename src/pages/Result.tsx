@@ -1,10 +1,13 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { useStepNav } from '../components/Curtain'
 import { MiniStrip } from '../components/MiniStrip'
 import { QuotaBar } from '../components/LoginSheet'
+import { SparkleButton } from '../components/SparkleButton'
 import { loginPath, useAuth } from '../lib/api'
 import { downloadBlob, fileName, hasLive, renderBlob, renderGif, type Format } from '../lib/export'
 import { sendPatungan } from '../lib/share'
+import { useGooeyPill } from '../lib/gooey'
 import { FORMAT_IDS, FORMATS, type FormatId } from '../lib/layouts'
 import { renderInput, useBooth } from '../store'
 
@@ -14,6 +17,7 @@ type Busy = 'png' | 'jpg' | 'gif' | 'share' | null
 
 export function ResultPage() {
   const navigate = useNavigate()
+  const stepTo = useStepNav()
   const { design, photos, stripId, resetPhotos, setDesign } = useBooth()
   const { user, quota, claimStrip } = useAuth()
   const input = useMemo(() => renderInput({ design, photos }), [design, photos])
@@ -23,6 +27,10 @@ export function ResultPage() {
   const [error, setError] = useState<string | null>(null)
   const [claimed, setClaimed] = useState<Record<string, boolean>>({})
   const [last, setLast] = useState<Blob | null>(null)
+  // Bertambah setiap berkas selesai dibuat; memicu percikan di tombolnya.
+  const [done, setDone] = useState({ jpg: 0, png: 0, gif: 0 })
+  const formatRef = useRef<HTMLDivElement>(null)
+  useGooeyPill(formatRef, FORMAT_IDS.indexOf(design.format))
   const boxRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(0.3)
 
@@ -60,6 +68,7 @@ export function ResultPage() {
           : await renderBlob(input, { scale: k, watermark, format: kind as Format })
       setLast(blob)
       downloadBlob(blob, fileName(kind))
+      setDone((d) => ({ ...d, [kind]: d[kind] + 1 }))
     } catch (e) {
       const err = e as Error & { status?: number }
       if (err.status === 401) navigate(loginPath('/app/unduh'))
@@ -111,13 +120,15 @@ export function ResultPage() {
               <span className="font-semibold">Ukuran</span>
               <span className="text-soft tabular-nums">{px} px</span>
             </div>
-            <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-full border-2 border-ink p-0.5 font-bold">
+            <div ref={formatRef} className="no-scrollbar relative flex gap-1 overflow-x-auto rounded-full border-2 border-ink p-0.5 font-bold">
+              <span data-pill aria-hidden className="invisible absolute top-0.5 bottom-0.5 left-0 rounded-full bg-ink" />
               {FORMAT_IDS.map((id) => (
                 <button
                   key={id}
+                  data-item
                   onClick={() => setDesign({ format: id })}
                   aria-pressed={design.format === id}
-                  className={`shrink-0 flex-1 rounded-full px-3 py-1 whitespace-nowrap ${design.format === id ? 'bg-ink text-cream' : ''}`}
+                  className={`relative z-10 shrink-0 flex-1 rounded-full px-3 py-1 whitespace-nowrap transition-colors duration-200 ${design.format === id ? 'text-cream' : ''}`}
                 >
                   {SHORT[id]}
                 </button>
@@ -132,16 +143,16 @@ export function ResultPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <button className="btn bg-pop text-white" disabled={!!busy} onClick={() => save('jpg')}>
+            <SparkleButton burst={done.jpg} buttonClassName="btn w-full bg-pop text-white" disabled={!!busy} onClick={() => save('jpg')}>
               {busy === 'jpg' ? 'Membuat…' : 'Unduh JPG'}
-            </button>
-            <button className="btn bg-paper" disabled={!!busy} onClick={() => save('png')}>
+            </SparkleButton>
+            <SparkleButton burst={done.png} buttonClassName="btn w-full bg-paper" disabled={!!busy} onClick={() => save('png')}>
               {busy === 'png' ? 'Membuat…' : 'Unduh PNG'}
-            </button>
+            </SparkleButton>
             {live && (
-              <button className="btn col-span-2 bg-sky" disabled={!!busy} onClick={() => save('gif')}>
+              <SparkleButton burst={done.gif} className="col-span-2" buttonClassName="btn w-full bg-sky" disabled={!!busy} onClick={() => save('gif')}>
                 {busy === 'gif' ? `Membuat GIF… ${Math.round(progress * 100)}%` : 'Unduh GIF live ✨'}
-              </button>
+              </SparkleButton>
             )}
             {canShare && (
               <button className="btn col-span-2 bg-paper" disabled={!!busy} onClick={share}>
@@ -174,15 +185,12 @@ export function ResultPage() {
         </div>
 
         <div className="flex gap-2 pb-4">
-          <button className="btn flex-1 bg-paper text-sm" onClick={() => navigate('/app/hias')}>
+          <button className="btn flex-1 bg-paper text-sm" onClick={(e) => stepTo('/app/hias', e)}>
             ← Hias lagi
           </button>
           <button
             className="btn flex-1 bg-paper text-sm"
-            onClick={() => {
-              resetPhotos()
-              navigate('/app/foto')
-            }}
+            onClick={(e) => stepTo('/app/foto', e, resetPhotos)}
           >
             Foto lagi
           </button>

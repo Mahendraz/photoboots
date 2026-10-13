@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
-import { Logo } from '../components/AppShell'
+import { Mascot, type MascotHandle } from '../components/Mascot'
 import { devLogin, emailAuth, googleLoginHref, safeBack, useAuth, type EmailAction, type EmailError } from '../lib/api'
 import { stashSession } from '../lib/stash'
 
@@ -38,6 +38,20 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(CALLBACK_ERRORS[params.get('galat') ?? ''] ?? null)
   const [notice, setNotice] = useState<string | null>(null)
+  const mascot = useRef<MascotHandle>(null)
+  // Kucing menutup mata di kolom kata sandi dan senang di tombol utama.
+  const shy = {
+    onPointerEnter: () => mascot.current?.cover(true),
+    onPointerLeave: (e: React.PointerEvent<HTMLInputElement>) => document.activeElement !== e.currentTarget && mascot.current?.cover(false),
+    onFocus: () => mascot.current?.cover(true),
+    onBlur: () => mascot.current?.cover(false),
+  }
+  const cheer = {
+    onPointerEnter: () => mascot.current?.happy(true),
+    onPointerLeave: () => mascot.current?.happy(false),
+    onFocus: () => mascot.current?.happy(true),
+    onBlur: () => mascot.current?.happy(false),
+  }
 
   if (loaded && user) return <Navigate to={back} replace />
 
@@ -69,6 +83,7 @@ export function LoginPage() {
     setBusy(false)
     if (!result.ok) return setError(ERRORS[result.reason])
     if (view === 'login') {
+      mascot.current?.happy(true)
       // Tanpa pindah halaman: foto di memori tetap ada.
       await refresh()
       navigate(back, { replace: true })
@@ -90,98 +105,101 @@ export function LoginPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-sm flex-col items-center px-4 py-8 sm:py-12">
-        <Logo className="size-14" />
-        <div className="card mt-4 w-full p-5">
-          <h1 className="text-center font-display text-2xl font-bold">{title}</h1>
-          <p className="mt-2 text-center text-sm text-soft">{body}</p>
+      <div className="mx-auto flex max-w-sm flex-col items-center px-4 py-6 sm:py-10">
+        <div className="relative w-full pt-[104px]">
+          <Mascot ref={mascot} />
+          <div className="card relative z-10 w-full p-5">
+            <h1 className="text-center font-display text-2xl font-bold">{title}</h1>
+            <p className="mt-2 text-center text-sm text-soft">{body}</p>
 
-          {!loaded && <p className="mt-6 text-center text-sm text-soft">Memuat…</p>}
+            {!loaded && <p className="mt-6 text-center text-sm text-soft">Memuat…</p>}
 
-          {loaded && login.configured && view !== 'reset' && (
-            <>
-              {login.email && (
-                <div role="tablist" className="mt-5 grid grid-cols-2 rounded-full border-2 border-ink p-0.5 text-sm font-bold">
-                  {(['login', 'signup'] as const).map((v) => (
-                    <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => go(v)} className={`min-h-9 rounded-full ${view === v ? 'bg-ink text-cream' : ''}`}>
-                      {v === 'login' ? 'Masuk' : 'Buat akun'}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <a href={googleLoginHref(back)} onClick={google} aria-disabled={busy} className="btn mt-4 w-full bg-paper">
-                <GoogleIcon />
-                Lanjutkan dengan Google
-              </a>
-              {login.email && (
-                <p className="my-4 flex items-center gap-3 text-xs text-soft before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">atau gunakan email kamu</p>
-              )}
-            </>
-          )}
-
-          {loaded && login.configured && login.email && (
-            <form onSubmit={submit} className={`flex flex-col gap-3 ${view === 'reset' ? 'mt-5' : ''}`}>
-              {view === 'signup' && (
-                <label className="block">
-                  <span className="mb-1 block text-xs font-bold text-soft">Nama (opsional)</span>
-                  <input name="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={field} />
-                </label>
-              )}
-              <label className="block">
-                <span className="mb-1 block text-xs font-bold text-soft">Email</span>
-                <input name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={field} />
-              </label>
-              {view !== 'reset' && (
-                <label className="block">
-                  <span className="mb-1 flex items-center justify-between text-xs font-bold text-soft">
-                    Kata Sandi
-                    {view === 'login' && (
-                      <button type="button" onClick={() => go('reset')} className="font-bold text-pop-dark hover:underline">
-                        Lupa kata sandi?
+            {loaded && login.configured && view !== 'reset' && (
+              <>
+                {login.email && (
+                  <div role="tablist" className="mt-5 grid grid-cols-2 rounded-full border-2 border-ink p-0.5 text-sm font-bold">
+                    {(['login', 'signup'] as const).map((v) => (
+                      <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => go(v)} className={`min-h-9 rounded-full ${view === v ? 'bg-ink text-cream' : ''}`}>
+                        {v === 'login' ? 'Masuk' : 'Buat akun'}
                       </button>
-                    )}
-                  </span>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    minLength={view === 'signup' ? 15 : undefined}
-                    maxLength={72}
-                    autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    aria-describedby={view === 'signup' ? 'password-hint' : undefined}
-                    className={field}
-                  />
-                  {view === 'signup' && (
-                    <span id="password-hint" className="mt-1 block text-xs text-soft">
-                      Minimal 15 karakter. Frasa pendek juga boleh, misalnya “foto bareng di batam”.
-                    </span>
-                  )}
-                </label>
-              )}
-              <button type="submit" disabled={busy} className="btn mt-1 w-full bg-pop text-white">
-                {busy ? 'Sebentar…' : view === 'login' ? 'Masuk' : view === 'signup' ? 'Buat akun' : 'Kirim tautan reset'}
-              </button>
-            </form>
-          )}
-
-          {view === 'reset' && (
-            <button type="button" onClick={() => go('login')} className="mt-3 w-full text-center text-sm font-bold text-pop-dark hover:underline">
-              Kembali ke masuk
-            </button>
-          )}
-
-          {loaded && login.dev && <DevLogin onDone={async () => (await refresh(), navigate(back, { replace: true }))} />}
-          {loaded && !login.configured && !login.dev && <p className="mt-5 text-center text-sm font-semibold text-pop-dark">Login belum dikonfigurasi di server.</p>}
-
-          <div aria-live="polite" className="mt-3 empty:hidden">
-            {error && (
-              <p role="alert" className="text-sm font-semibold text-pop-dark">
-                {error}
-              </p>
+                    ))}
+                  </div>
+                )}
+                <a href={googleLoginHref(back)} onClick={google} aria-disabled={busy} className="btn mt-4 w-full bg-paper" {...cheer}>
+                  <GoogleIcon />
+                  Lanjutkan dengan Google
+                </a>
+                {login.email && (
+                  <p className="my-4 flex items-center gap-3 text-xs text-soft before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">atau gunakan email kamu</p>
+                )}
+              </>
             )}
-            {notice && <p className="text-sm">{notice}</p>}
+
+            {loaded && login.configured && login.email && (
+              <form onSubmit={submit} className={`flex flex-col gap-3 ${view === 'reset' ? 'mt-5' : ''}`}>
+                {view === 'signup' && (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-bold text-soft">Nama (opsional)</span>
+                    <input name="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={field} />
+                  </label>
+                )}
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-soft">Email</span>
+                  <input name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={field} />
+                </label>
+                {view !== 'reset' && (
+                  <label className="block">
+                    <span className="mb-1 flex items-center justify-between text-xs font-bold text-soft">
+                      Kata Sandi
+                      {view === 'login' && (
+                        <button type="button" onClick={() => go('reset')} className="font-bold text-pop-dark hover:underline">
+                          Lupa kata sandi?
+                        </button>
+                      )}
+                    </span>
+                    <input
+                      name="password"
+                      type="password"
+                      required
+                      minLength={view === 'signup' ? 15 : undefined}
+                      maxLength={72}
+                      autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      aria-describedby={view === 'signup' ? 'password-hint' : undefined}
+                      className={field}
+                      {...shy}
+                    />
+                    {view === 'signup' && (
+                      <span id="password-hint" className="mt-1 block text-xs text-soft">
+                        Minimal 15 karakter. Frasa pendek juga boleh, misalnya “foto bareng di batam”.
+                      </span>
+                    )}
+                  </label>
+                )}
+                <button type="submit" disabled={busy} className="btn mt-1 w-full bg-pop text-white" {...cheer}>
+                  {busy ? 'Sebentar…' : view === 'login' ? 'Masuk' : view === 'signup' ? 'Buat akun' : 'Kirim tautan reset'}
+                </button>
+              </form>
+            )}
+
+            {view === 'reset' && (
+              <button type="button" onClick={() => go('login')} className="mt-3 w-full text-center text-sm font-bold text-pop-dark hover:underline">
+                Kembali ke masuk
+              </button>
+            )}
+
+            {loaded && login.dev && <DevLogin onDone={async () => (await refresh(), navigate(back, { replace: true }))} />}
+            {loaded && !login.configured && !login.dev && <p className="mt-5 text-center text-sm font-semibold text-pop-dark">Login belum dikonfigurasi di server.</p>}
+
+            <div aria-live="polite" className="mt-3 empty:hidden">
+              {error && (
+                <p role="alert" className="text-sm font-semibold text-pop-dark">
+                  {error}
+                </p>
+              )}
+              {notice && <p className="text-sm">{notice}</p>}
+            </div>
           </div>
         </div>
         <button onClick={() => navigate(back)} className="mt-4 text-sm font-semibold text-soft hover:underline">

@@ -136,7 +136,7 @@ export function CapturePage() {
       {/* Kamera */}
       <div className="flex flex-col items-center gap-3 lg:flex-1">
         <div
-          className="relative overflow-hidden rounded-3xl border-2 border-ink bg-ink shadow-hard"
+          className="relative overflow-hidden rounded-3xl bg-inverse shadow-lg"
           style={{ aspectRatio: ratio, width: `min(100%, calc(min(58dvh, 640px) * ${ratio}))` }}
         >
           <video
@@ -154,33 +154,33 @@ export function CapturePage() {
             onRetry={() => setCamTry((n) => n + 1)}
           />
           {count !== null && (
-            <div key={`c${count}`} className="anim-pop absolute inset-0 grid place-items-center font-display text-[min(30vw,180px)] font-bold text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">
+            <div key={`c${count}`} className="anim-pop absolute inset-0 grid place-items-center font-heading text-[min(30vw,180px)] font-bold text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">
               {count}
             </div>
           )}
           {flashKey > 0 && <div key={`f${flashKey}`} className="anim-flash pointer-events-none absolute inset-0 bg-white opacity-0" />}
           {running && (
-            <span className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-pop px-3 py-1 text-xs font-bold text-white">
+            <span className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-danger px-3 py-1 text-xs font-bold text-white">
               ● {filled}/{photos.length}
             </span>
           )}
         </div>
 
         <div className="flex w-full max-w-xl items-center justify-center gap-3">
-          <button className="btn bg-paper px-3" onClick={() => fileRef.current?.click()} disabled={running} aria-label="Upload foto">
+          <button className="btn px-3" onClick={() => fileRef.current?.click()} disabled={running} aria-label="Upload foto">
             <UploadIcon /> <span className="max-sm:hidden">Upload</span>
           </button>
           {running ? (
-            <button className="btn min-w-44 bg-ink text-cream" onClick={() => (cancelRef.current = true)}>
+            <button className="btn min-w-44" onClick={() => (cancelRef.current = true)}>
               Berhenti
             </button>
           ) : (
-            <button className="btn min-w-44 bg-pop text-lg text-white" onClick={() => shoot(primaryTargets)} disabled={!camReady}>
+            <button className="btn btn-primary min-w-44 text-lg" onClick={() => shoot(primaryTargets)} disabled={!camReady}>
               {primaryLabel}
             </button>
           )}
           <button
-            className="btn bg-paper px-3"
+            className="btn px-3"
             onClick={() => setSettings({ facing: settings.facing === 'user' ? 'environment' : 'user', mirror: settings.facing !== 'user' })}
             disabled={running}
             aria-label="Ganti kamera depan/belakang"
@@ -199,19 +199,19 @@ export function CapturePage() {
             e.target.value = ''
           }}
         />
-        {note && <p className="text-center text-sm font-semibold text-pop-dark">{note}</p>}
+        {note && <p className="text-center text-sm font-semibold text-danger">{note}</p>}
       </div>
 
       {/* Panel samping */}
       <aside className="flex flex-col gap-4 lg:w-80">
         <div className="card p-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">
+            <h2 className="font-heading text-lg font-bold">
               Frame {filled}/{photos.length}
             </h2>
-            {patunganFrom !== null && <span className="rounded-full bg-sky px-2 py-0.5 text-xs font-bold">patungan</span>}
+            {patunganFrom !== null && <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-accent-hover text-xs font-bold">patungan</span>}
           </div>
-          <p className="mt-1 text-xs text-soft">Ketuk frame untuk foto ulang atau ganti dengan upload.</p>
+          <p className="mt-1 text-xs text-muted">Ketuk frame untuk foto ulang atau ganti dengan upload.</p>
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-3">
             {photos.map((p, i) => (
               <button
@@ -220,29 +220,29 @@ export function CapturePage() {
                 disabled={running}
                 aria-pressed={selected === i}
                 aria-label={`Frame ${i + 1}${p ? '' : ' (kosong)'}`}
-                className={`relative w-20 shrink-0 overflow-hidden rounded-xl border-2 lg:w-auto ${selected === i ? 'border-pop ring-2 ring-pop' : 'border-ink'}`}
+                className={`relative w-20 shrink-0 overflow-hidden rounded-xl border-2 lg:w-auto ${selected === i ? 'border-accent ring-2 ring-accent' : 'border-border'}`}
                 style={{ aspectRatio: ratio }}
               >
                 {p ? (
                   <PhotoThumb photo={p} aspect={ratio} className="size-full" />
                 ) : (
-                  <span className="grid size-full place-items-center bg-line/60 font-display text-xl font-bold text-soft">{i + 1}</span>
+                  <span className="grid size-full place-items-center bg-bg-subtle font-heading text-xl font-bold text-muted">{i + 1}</span>
                 )}
-                {p?.source === 'friend' && <span className="absolute right-1 bottom-1 rounded bg-sky px-1 text-[10px] font-bold">teman</span>}
-                {p?.burst && <span className="absolute top-1 right-1 rounded bg-ink/70 px-1 text-[10px] font-bold text-white">live</span>}
+                {p?.source === 'friend' && <span className="absolute right-1 bottom-1 rounded bg-accent-subtle px-1 text-[10px] text-accent-hover font-bold">teman</span>}
+                {p?.burst && <span className="absolute top-1 right-1 rounded bg-inverse/70 px-1 text-[10px] font-bold text-white">live</span>}
               </button>
             ))}
           </div>
           {selected !== null && photos[selected] && (
-            <button className="mt-2 text-sm font-semibold text-pop-dark underline" onClick={() => (setPhoto(selected, null), setSelected(null))}>
+            <button className="mt-2 text-sm font-semibold text-danger underline" onClick={() => (setPhoto(selected, null), setSelected(null))}>
               Kosongkan frame {selected + 1}
             </button>
           )}
         </div>
 
         <div className="card p-4">
-          <button className="flex w-full items-center justify-between font-display text-lg font-bold" onClick={() => setShowSettings((s) => !s)} aria-expanded={showSettings}>
-            Pengaturan <span className="text-sm text-soft">{showSettings ? 'tutup' : `timer ${settings.countdown}d · jeda ${settings.interval}d`}</span>
+          <button className="flex w-full items-center justify-between font-heading text-lg font-bold" onClick={() => setShowSettings((s) => !s)} aria-expanded={showSettings}>
+            Pengaturan <span className="text-sm text-muted">{showSettings ? 'tutup' : `timer ${settings.countdown}d · jeda ${settings.interval}d`}</span>
           </button>
           {showSettings && (
             <div className="mt-3 space-y-3 text-sm">
@@ -256,19 +256,19 @@ export function CapturePage() {
         </div>
 
         {empties.length > 0 && filled > 0 && (
-          <div className="rounded-2xl border-2 border-dashed border-ink/30 p-4 text-sm">
+          <div className="rounded-2xl border-2 border-dashed border-border-strong p-4 text-sm">
             <p className="font-bold">Sisanya diisi teman?</p>
-            <p className="mt-1 text-soft">Kirim berkas patungan; temanmu buka di web ini lalu foto {empties.length} frame yang kosong.</p>
-            <button className="btn mt-3 w-full bg-sky text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
+            <p className="mt-1 text-muted">Kirim berkas patungan; temanmu buka di web ini lalu foto {empties.length} frame yang kosong.</p>
+            <button className="btn mt-3 w-full text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
               Kirim ke teman
             </button>
           </div>
         )}
 
-        <button className="btn bg-ink text-cream" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
+        <button className="btn btn-primary" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
           Lanjut hias →{empties.length > 0 && filled > 0 && <span className="text-xs font-normal opacity-70">({empties.length} kosong)</span>}
         </button>
-        <p className="text-center text-xs text-soft">
+        <p className="text-center text-xs text-muted">
           {layout.name} · foto tidak pernah diunggah ke server
         </p>
       </aside>
@@ -280,9 +280,9 @@ function Segment({ label, value, options, suffix, onChange }: { label: string; v
   return (
     <div className="flex items-center justify-between gap-3">
       <span>{label}</span>
-      <div className="flex rounded-full border-2 border-ink p-0.5">
+      <div className="flex rounded-full border border-border bg-surface p-0.5">
         {options.map((o) => (
-          <button key={o} onClick={() => onChange(o)} aria-pressed={value === o} className={`rounded-full px-2.5 py-1 font-bold ${value === o ? 'bg-ink text-cream' : ''}`}>
+          <button key={o} onClick={() => onChange(o)} aria-pressed={value === o} className={`rounded-full px-2.5 py-1 font-bold ${value === o ? 'bg-accent text-white' : ''}`}>
             {o}
             {suffix}
           </button>
@@ -297,7 +297,7 @@ export function Toggle({ label, checked, onChange }: { label: string; checked: b
     <label className="flex cursor-pointer items-center justify-between gap-3">
       <span>{label}</span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
-      <span className="relative h-6 w-11 shrink-0 rounded-full border-2 border-ink bg-line transition peer-checked:bg-mint peer-focus-visible:ring-2 peer-focus-visible:ring-pop after:absolute after:top-0.5 after:left-0.5 after:size-4 after:rounded-full after:bg-ink after:transition peer-checked:after:translate-x-5" />
+      <span className="relative h-6 w-11 shrink-0 rounded-full bg-border-strong transition peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent after:absolute after:top-1 after:left-1 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5" />
     </label>
   )
 }

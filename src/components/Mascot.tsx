@@ -6,7 +6,7 @@ gsap.registerPlugin(useGSAP)
 
 const HEART = 'https://inassetweb-cdn.inwebsite.online/sprinkles/v2/particles/sparkle-heart.webp'
 const SPARK = 'https://inassetweb-cdn.inwebsite.online/sprinkles/v2/particles/sparkle-4point.webp'
-const INK = '#1f1a17'
+const INK = '#14181f'
 const BODY = 'M100 50C152 50 184 84 186 130C188 176 150 204 100 204C50 204 12 176 14 130C16 84 48 50 100 50Z'
 const EYES = [
   { x: 72, y: 112 },
@@ -41,9 +41,9 @@ const Paw = ({ x, side }: { x: number; side: 'l' | 'r' }) => (
 /**
  * Kucing yang mengintip di atas kartu masuk, dari snippet Mascot Eyes Follow InWebAsset: matanya
  * mengikuti kursor, berkedip, menutup mata saat kata sandi diketik, dan melompat senang di tombol.
- * Digambar ulang dengan garis tinta supaya serasi dengan kartu photobooth.
+ * Badannya biru aksen InWebsite (#0B5FFF), sama dengan simbol logo InWebBooth.
  */
-export function Mascot({ ref, color = '#ffd166', className = '' }: { ref?: Ref<MascotHandle>; color?: string; className?: string }) {
+export function Mascot({ ref, color = '#0b5fff', className = '' }: { ref?: Ref<MascotHandle>; color?: string; className?: string }) {
   const root = useRef<HTMLDivElement>(null)
   const api = useRef<MascotHandle | null>(null)
   useImperativeHandle(ref, () => ({ cover: (on) => api.current?.cover(on), happy: (on) => api.current?.happy(on) }), [])

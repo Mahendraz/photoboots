@@ -4,12 +4,12 @@ import { loadGsap, prefersReducedMotion, type GsapApi } from '../lib/motion'
 import { Logo } from './Logo'
 
 const PANELS = 7
-/** Warna tirai mengikuti langkah tujuan. */
+/** Warna tirai: satu aksen di semua langkah (design system InWebsite, tanpa warna-warni). */
 const COLORS: Record<string, string> = {
-  '/app': 'var(--color-sun)',
-  '/app/foto': 'var(--color-pop)',
-  '/app/hias': 'var(--color-sky)',
-  '/app/unduh': 'var(--color-mint)',
+  '/app': 'var(--color-accent)',
+  '/app/foto': 'var(--color-accent)',
+  '/app/hias': 'var(--color-accent)',
+  '/app/unduh': 'var(--color-accent)',
 }
 
 type Run = (to: string, x: number | null, after?: () => void) => void
@@ -134,13 +134,13 @@ export function Curtain() {
         <span
           key={i}
           data-panel
-          className={`-mx-px block h-[135%] flex-1 rounded-b-[999px] border-2 border-t-0 border-ink ${i % 2 ? 'brightness-95' : ''}`}
+          className={`-mx-px block h-[135%] flex-1 rounded-b-[999px] ${i % 2 ? 'brightness-90' : ''}`}
           style={{ transform: 'translateY(-101%)' }}
         />
       ))}
       <span
         data-badge
-        className="invisible absolute top-1/2 left-1/2 -mt-9 -ml-9 grid size-18 place-items-center rounded-full border-2 border-ink bg-cream shadow-hard"
+        className="invisible absolute top-1/2 left-1/2 -mt-9 -ml-9 grid size-18 place-items-center rounded-full border border-border bg-surface shadow-lg"
       >
         <Logo className="size-11" />
       </span>

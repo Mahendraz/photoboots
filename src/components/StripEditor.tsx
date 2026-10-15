@@ -105,7 +105,7 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
         onPointerDown={() => onSelect(null)}
       >
         <div className="flex min-h-full items-center justify-center p-3">
-          <div className="relative shrink-0 shadow-[0_8px_30px_rgba(31,26,23,0.25)]" style={{ width: box.w, height: box.h }}>
+          <div className="relative shrink-0 shadow-[0_8px_30px_rgba(20,24,31,0.25)]" style={{ width: box.w, height: box.h }}>
             <canvas ref={canvasRef} className="block size-full" />
             {overlays.map((o) => (
               <OverlayBox
@@ -126,7 +126,7 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
       {canZoom && (
         <button
           onClick={() => setZoomed((z) => !z)}
-          className="btn absolute right-3 bottom-3 min-h-10 bg-paper px-3 text-sm"
+          className="btn absolute right-3 bottom-3 min-h-10 px-3 text-sm"
           aria-pressed={zoomed}
         >
           {zoomed ? 'Muat layar' : 'Perbesar'}
@@ -258,7 +258,7 @@ function OverlayBox({
         else return
         e.preventDefault()
       }}
-      className={`absolute touch-none select-none ${selected ? 'z-10 rounded-md outline-2 outline-offset-2 outline-pop outline-dashed' : ''}`}
+      className={`absolute touch-none select-none ${selected ? 'z-10 rounded-md outline-2 outline-offset-2 outline-accent outline-dashed' : ''}`}
       style={{
         left: o.x * W * k,
         top: o.y * H * k,
@@ -274,14 +274,14 @@ function OverlayBox({
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={onRemove}
-            className="absolute -top-8 -left-8 grid size-7 place-items-center rounded-full border-2 border-ink bg-pop text-sm leading-none font-bold text-white"
+            className="absolute -top-8 -left-8 grid size-7 place-items-center rounded-full border-2 border-white bg-danger text-sm leading-none font-bold text-white"
             aria-label="Hapus stiker"
           >
             ×
           </button>
           <span
             onPointerDown={startTransform}
-            className="absolute -right-8 -bottom-8 grid size-7 cursor-nwse-resize place-items-center rounded-full border-2 border-ink bg-sun"
+            className="absolute -right-8 -bottom-8 grid size-7 cursor-nwse-resize place-items-center rounded-full border border-border bg-surface shadow-md"
             aria-hidden
           >
             <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">

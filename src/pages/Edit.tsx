@@ -15,12 +15,15 @@ import { renderInput, useBooth } from '../store'
 
 type Tab = 'frame' | 'filter' | 'stiker' | 'teks' | 'atur'
 const ICON = 'https://inassetweb-cdn.inwebsite.online/sprinkles'
+// Pil tab aktif: --accent-subtle dengan tulisan --accent-hover (hex, supaya bisa dianimasikan GSAP).
+const PILL = '#e8f0ff'
+const PILL_INK = '#0a4fd6'
 const TABS: PillTab<Tab>[] = [
-  { id: 'frame', label: 'Frame', icon: `${ICON}/v2/icons/paint-palette.webp`, color: '#ffd166', ink: 'var(--color-ink)' },
-  { id: 'filter', label: 'Filter', icon: `${ICON}/v1/icons/ai-magic-wand.webp`, color: '#7bdff2', ink: 'var(--color-ink)' },
-  { id: 'stiker', label: 'Stiker', icon: `${ICON}/v2/icons/heart.webp`, color: '#ff4f6d', ink: '#fff' },
-  { id: 'teks', label: 'Teks', icon: `${ICON}/v2/icons/pencil.webp`, color: '#9be8c6', ink: 'var(--color-ink)' },
-  { id: 'atur', label: 'Atur', icon: `${ICON}/v2/icons/gear.webp`, color: '#ecdcc8', ink: 'var(--color-ink)' },
+  { id: 'frame', label: 'Frame', icon: `${ICON}/v2/icons/paint-palette.webp`, color: PILL, ink: PILL_INK },
+  { id: 'filter', label: 'Filter', icon: `${ICON}/v1/icons/ai-magic-wand.webp`, color: PILL, ink: PILL_INK },
+  { id: 'stiker', label: 'Stiker', icon: `${ICON}/v2/icons/heart.webp`, color: PILL, ink: PILL_INK },
+  { id: 'teks', label: 'Teks', icon: `${ICON}/v2/icons/pencil.webp`, color: PILL, ink: PILL_INK },
+  { id: 'atur', label: 'Atur', icon: `${ICON}/v2/icons/gear.webp`, color: PILL, ink: PILL_INK },
 ]
 
 const EMOJI = ['😍', '🥰', '😎', '🤪', '😜', '🥳', '😂', '🙈', '😘', '🤍', '🖤', '💖', '💕', '🫶', '✨', '⭐', '🌈', '🔥', '🎉', '📸', '🎀', '🦋', '🌸', '💐', '👑', '💋', '💯', '👻', '🐶', '🐱', '🌙', '☀️']
@@ -48,15 +51,15 @@ export function EditPage() {
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
-      <div className="relative min-h-0 flex-1 bg-[radial-gradient(circle_at_50%_40%,#fff_0%,#f6ead8_70%)] lg:p-4">
+      <div className="relative min-h-0 flex-1 bg-bg-subtle lg:p-4">
         <StripEditor input={input} selected={selected} onSelect={setSelected} onChange={updateOverlay} onRemove={(id) => (removeOverlay(id), setSelected(null))} />
       </div>
 
-      <aside className="flex h-[46dvh] shrink-0 flex-col border-t-2 border-ink bg-paper lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l-2">
+      <aside className="flex h-[46dvh] shrink-0 flex-col border-t border-border bg-surface lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l">
         <PillTabs tabs={TABS} value={tab} onChange={setTab} label="Alat hias" panel={panelRef} />
 
         {selectedOverlay && (
-          <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b-2 border-ink bg-sun/40 px-2 py-1.5 no-scrollbar" aria-label="Atur stiker terpilih">
+          <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-accent-subtle px-2 py-1.5 no-scrollbar" aria-label="Atur stiker terpilih">
             <ToolBtn label="Kecilkan" onClick={() => updateOverlay(selectedOverlay.id, { size: Math.max(0.02, selectedOverlay.size / 1.15) })}>
               −
             </ToolBtn>
@@ -101,11 +104,11 @@ export function EditPage() {
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2 border-t-2 border-ink p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <button className="btn bg-paper px-3 text-sm" onClick={(e) => stepTo('/app/foto', e)}>
+        <div className="flex shrink-0 gap-2 border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button className="btn px-3 text-sm" onClick={(e) => stepTo('/app/foto', e)}>
             ← Foto
           </button>
-          <button className="btn flex-1 bg-pop text-white" onClick={(e) => (setSelected(null), stepTo('/app/unduh', e))}>
+          <button className="btn btn-primary flex-1" onClick={(e) => (setSelected(null), stepTo('/app/unduh', e))}>
             Selesai, unduh →
           </button>
         </div>
@@ -148,7 +151,7 @@ function FramePanel() {
   return (
     <div className="space-y-3">
       {layout.regions === 2 && (
-        <div className="flex rounded-full border-2 border-ink p-0.5 text-sm font-bold">
+        <div className="flex rounded-full border border-border bg-surface p-0.5 text-sm font-bold">
           {(
             [
               ['both', 'Sama'],
@@ -156,7 +159,7 @@ function FramePanel() {
               ['right', 'Kanan'],
             ] as const
           ).map(([id, label]) => (
-            <button key={id} onClick={() => setSide(id)} aria-pressed={side === id} className={`flex-1 rounded-full px-2 py-1.5 ${side === id ? 'bg-ink text-cream' : ''}`}>
+            <button key={id} onClick={() => setSide(id)} aria-pressed={side === id} className={`flex-1 rounded-full px-2 py-1.5 ${side === id ? 'bg-accent text-white' : ''}`}>
               {label}
             </button>
           ))}
@@ -168,7 +171,7 @@ function FramePanel() {
             key={c}
             onClick={() => setCat(c)}
             aria-pressed={cat === c}
-            className={`shrink-0 rounded-full border-2 px-3 py-1 text-xs font-bold ${cat === c ? 'border-ink bg-ink text-cream' : 'border-line'}`}
+            className={`shrink-0 rounded-full border-2 px-3 py-1 text-xs font-bold ${cat === c ? 'border-accent bg-accent text-white' : 'border-border'}`}
           >
             {c}
           </button>
@@ -180,7 +183,7 @@ function FramePanel() {
             key={t.id}
             onClick={() => pick(t.id)}
             aria-pressed={activeId === t.id}
-            className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${activeId === t.id ? 'border-ink bg-sun' : 'border-transparent hover:border-line'}`}
+            className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${activeId === t.id ? 'border-accent bg-accent-subtle' : 'border-transparent hover:border-border'}`}
           >
             <div className="flex h-24 items-center">
               <MiniStrip input={ti} scale={0.06} className="h-full w-auto rounded-[2px] shadow-[0_1px_4px_rgba(0,0,0,0.2)]" />
@@ -202,7 +205,7 @@ function FilterPanel({ photo }: { photo: Photo | null }) {
           key={f.id}
           onClick={() => setDesign({ filterId: f.id })}
           aria-pressed={design.filterId === f.id}
-          className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${design.filterId === f.id ? 'border-ink bg-sun' : 'border-transparent hover:border-line'}`}
+          className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${design.filterId === f.id ? 'border-accent bg-accent-subtle' : 'border-transparent hover:border-border'}`}
         >
           {photo && <FilterThumb photo={photo} filterId={f.id} />}
           <span className="text-[11px] font-semibold">{f.name}</span>
@@ -231,7 +234,7 @@ function TextPanel({
         <input
           value={selectedText.text ?? ''}
           onChange={(e) => onEdit({ text: e.target.value })}
-          className="w-full rounded-xl border-2 border-ink bg-white px-3 py-2"
+          className="w-full rounded-md border border-border bg-surface px-3 py-2"
           maxLength={60}
           aria-label="Isi teks"
         />
@@ -251,7 +254,7 @@ function TextPanel({
           value={design.footerText ?? ''}
           placeholder={t.text.default}
           onChange={(e) => setDesign({ footerText: e.target.value === '' ? null : e.target.value })}
-          className="mt-1 w-full rounded-xl border-2 border-ink bg-white px-3 py-2"
+          className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2"
           maxLength={40}
         />
         <div className="mt-2 flex gap-2 text-xs">
@@ -266,7 +269,7 @@ function TextPanel({
       <Toggle label="Tampilkan tanggal" checked={design.showDate} onChange={(v) => setDesign({ showDate: v })} />
       <FontPicker value={design.textFont ?? t.text.font} onChange={(f) => setDesign({ textFont: f })} />
       <ColorPicker value={design.textColor ?? t.text.color} onChange={(c) => setDesign({ textColor: c })} />
-      <div className="rounded-2xl border-2 border-dashed border-line p-3">
+      <div className="rounded-2xl border-2 border-dashed border-border p-3">
         <p className="text-sm font-bold">Teks bebas (bisa digeser)</p>
         <div className="mt-2 flex gap-2">
           <input
@@ -274,10 +277,10 @@ function TextPanel({
             onChange={(e) => setFree(e.target.value)}
             placeholder="mis. Dinda & Raka"
             maxLength={60}
-            className="min-w-0 flex-1 rounded-full border-2 border-ink bg-white px-3"
+            className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3"
             aria-label="Teks bebas"
           />
-          <button className="btn bg-sun text-sm" disabled={!free.trim()} onClick={() => (onAdd(free.trim(), design.textFont ?? t.text.font, design.textColor ?? t.text.color), setFree(''))}>
+          <button className="btn text-sm" disabled={!free.trim()} onClick={() => (onAdd(free.trim(), design.textFont ?? t.text.font, design.textColor ?? t.text.color), setFree(''))}>
             Tambah
           </button>
         </div>
@@ -304,7 +307,7 @@ function ArrangePanel() {
               key={a}
               onClick={() => setDesign({ aspect: a })}
               aria-pressed={design.aspect === a}
-              className={`rounded-full border-2 px-3 py-1.5 font-semibold ${design.aspect === a ? 'border-ink bg-ink text-cream' : 'border-line'}`}
+              className={`rounded-full border-2 px-3 py-1.5 font-semibold ${design.aspect === a ? 'border-accent bg-accent text-white' : 'border-border'}`}
             >
               {ASPECTS[a].label}
             </button>
@@ -325,21 +328,21 @@ function ArrangePanel() {
                 key={id}
                 onClick={() => setDesign({ photoMode: id })}
                 aria-pressed={design.photoMode === id}
-                className={`flex-1 rounded-full border-2 px-3 py-1.5 font-semibold ${design.photoMode === id ? 'border-ink bg-ink text-cream' : 'border-line'}`}
+                className={`flex-1 rounded-full border-2 px-3 py-1.5 font-semibold ${design.photoMode === id ? 'border-accent bg-accent text-white' : 'border-border'}`}
               >
                 {label}
               </button>
             ))}
           </div>
-          {design.photoMode === 'beda' && photos.some((p) => !p) && <p className="mt-2 text-xs text-soft">Mode Beda butuh foto lebih banyak. Isi frame kosong di langkah Foto.</p>}
+          {design.photoMode === 'beda' && photos.some((p) => !p) && <p className="mt-2 text-xs text-muted">Mode Beda butuh foto lebih banyak. Isi frame kosong di langkah Foto.</p>}
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <button className="btn bg-paper text-sm" onClick={(e) => stepTo('/app', e)}>
+        <button className="btn text-sm" onClick={(e) => stepTo('/app', e)}>
           Ganti layout
         </button>
         {design.overlays.length > 0 && (
-          <button className="btn bg-paper text-sm" onClick={() => setDesign({ overlays: [] })}>
+          <button className="btn text-sm" onClick={() => setDesign({ overlays: [] })}>
             Hapus semua stiker
           </button>
         )}
@@ -354,7 +357,7 @@ function ToolBtn({ label, onClick, children, wide, danger }: { label: string; on
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`h-9 shrink-0 rounded-full border-2 border-ink text-sm font-bold ${wide ? 'px-3' : 'w-9 text-lg leading-none'} ${danger ? 'bg-pop text-white' : 'bg-paper'}`}
+      className={`h-9 shrink-0 rounded-full border border-border text-sm font-bold ${wide ? 'px-3' : 'w-9 text-lg leading-none'} ${danger ? 'bg-danger text-white' : 'bg-surface'}`}
     >
       {children}
     </button>
@@ -368,7 +371,7 @@ function StickerPanel({ onEmoji, onImage }: { onEmoji: (e: string) => void; onIm
     <div className="space-y-3">
       <div className="no-scrollbar -mx-3 flex gap-1 overflow-x-auto px-3 text-2xl">
         {EMOJI.map((e) => (
-          <button key={e} onClick={() => onEmoji(e)} className="grid size-11 shrink-0 place-items-center rounded-xl hover:bg-line" aria-label={`Tambah emoji ${e}`}>
+          <button key={e} onClick={() => onEmoji(e)} className="grid size-11 shrink-0 place-items-center rounded-xl hover:bg-bg-subtle" aria-label={`Tambah emoji ${e}`}>
             {e}
           </button>
         ))}
@@ -379,7 +382,7 @@ function StickerPanel({ onEmoji, onImage }: { onEmoji: (e: string) => void; onIm
             key={p.id}
             onClick={() => setPack(p.id)}
             aria-pressed={pack === p.id}
-            className={`shrink-0 rounded-full border-2 px-3 py-1 text-xs font-bold ${pack === p.id ? 'border-ink bg-ink text-cream' : 'border-line'}`}
+            className={`shrink-0 rounded-full border-2 px-3 py-1 text-xs font-bold ${pack === p.id ? 'border-accent bg-accent text-white' : 'border-border'}`}
           >
             {p.name}
           </button>
@@ -387,7 +390,7 @@ function StickerPanel({ onEmoji, onImage }: { onEmoji: (e: string) => void; onIm
       </div>
       <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6 lg:grid-cols-5">
         {current.items.map((s) => (
-          <button key={s.id} onClick={() => onImage(s.url)} className="aspect-square rounded-xl p-1 hover:bg-line" title={s.label} aria-label={`Tambah stiker ${s.label}`}>
+          <button key={s.id} onClick={() => onImage(s.url)} className="aspect-square rounded-xl p-1 hover:bg-bg-subtle" title={s.label} aria-label={`Tambah stiker ${s.label}`}>
             <img src={s.url} alt="" loading="lazy" className="size-full object-contain" />
           </button>
         ))}
@@ -422,7 +425,7 @@ function FontPicker({ value, onChange }: { value: string; onChange: (f: string) 
             key={f}
             onClick={() => onChange(f)}
             aria-pressed={value === f}
-            className={`shrink-0 rounded-xl border-2 px-3 py-1.5 text-base ${value === f ? 'border-ink bg-sun' : 'border-line'}`}
+            className={`shrink-0 rounded-xl border-2 px-3 py-1.5 text-base ${value === f ? 'border-accent bg-accent-subtle' : 'border-border'}`}
             style={{ fontFamily: `"${f}"`, fontSize: f === 'Press Start 2P' ? 10 : undefined }}
           >
             Aa {f.split(' ')[0]}
@@ -444,11 +447,11 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
             onClick={() => onChange(c)}
             aria-label={`Warna ${c}`}
             aria-pressed={value.toLowerCase() === c}
-            className={`size-8 rounded-full border-2 border-ink ${value.toLowerCase() === c ? 'ring-2 ring-pop ring-offset-2' : ''}`}
+            className={`size-8 rounded-full border border-border ${value.toLowerCase() === c ? 'ring-2 ring-accent ring-offset-2' : ''}`}
             style={{ background: c }}
           />
         ))}
-        <label className="relative size-8 cursor-pointer overflow-hidden rounded-full border-2 border-ink bg-[conic-gradient(red,yellow,lime,cyan,blue,magenta,red)]" aria-label="Warna lain">
+        <label className="relative size-8 cursor-pointer overflow-hidden rounded-full border border-border bg-[conic-gradient(red,yellow,lime,cyan,blue,magenta,red)]" aria-label="Warna lain">
           <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 opacity-0" />
         </label>
       </div>

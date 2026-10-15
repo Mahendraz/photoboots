@@ -29,7 +29,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b-2 border-ink bg-paper px-4 py-2.5 sm:px-6">
+      <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2.5 sm:px-6">
         <Link
           to="/app"
           onClick={(e) => {
@@ -38,23 +38,24 @@ export function AppShell() {
             stepTo('/app', e)
           }}
           className="flex shrink-0 items-center gap-2"
-          aria-label="Photobooth, kembali ke awal"
+          aria-label="InWebBooth, kembali ke awal"
         >
-          <Logo />
-          <span className="font-display text-xl font-bold tracking-tight max-sm:hidden">photobooth</span>
+          <Logo className="size-9 sm:hidden" />
+          {/* Rasio berkas 469:116; width/height eksplisit supaya kotaknya benar sebelum gambar turun. */}
+          <img src="/brand/inwebbooth/logo-horizontal-light.svg" alt="" width={469} height={116} className="h-10 w-auto max-sm:hidden" />
         </Link>
 
         <StepBar step={step} />
 
         <button
           onClick={() => (user ? openLogin() : navigate(loginPath(pathname)))}
-          className="flex shrink-0 items-center gap-2 rounded-full border-2 border-ink bg-cream py-1 pr-3 pl-1 text-sm font-bold"
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-border bg-surface py-1 pr-3 pl-1 text-sm font-semibold transition-colors hover:border-border-strong hover:bg-bg-subtle"
           aria-label={user ? `Akun ${user.name}` : 'Masuk'}
         >
           {user?.pic ? (
             <img src={user.pic} alt="" className="size-7 rounded-full" referrerPolicy="no-referrer" />
           ) : (
-            <span className="grid size-7 place-items-center rounded-full bg-sun font-display">{user ? user.name[0]?.toUpperCase() : '?'}</span>
+            <span className="grid size-7 place-items-center rounded-full bg-accent-subtle font-heading font-bold text-accent-hover">{user ? user.name[0]?.toUpperCase() : '?'}</span>
           )}
           {user ? (
             <span className="tabular-nums" title="Strip gratis tanpa watermark yang tersisa hari ini">

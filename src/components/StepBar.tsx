@@ -73,20 +73,20 @@ export function StepBar({ step }: { step: number }) {
       {STEPS.map((s, i) => (
         <li key={s.path} className="flex items-center gap-1 sm:gap-2">
           {i > 0 && (
-            <span aria-hidden className="relative h-0.5 w-3 overflow-hidden rounded-full bg-line sm:w-6">
-              <span data-fill className="absolute inset-0 origin-left bg-ink" />
+            <span aria-hidden className="relative h-0.5 w-3 overflow-hidden rounded-full bg-border sm:w-6">
+              <span data-fill className="absolute inset-0 origin-left bg-accent" />
             </span>
           )}
           <span className="relative">
-            <span data-halo aria-hidden className="absolute inset-0 rounded-full bg-ink opacity-0" />
+            <span data-halo aria-hidden className="absolute inset-0 rounded-full bg-accent opacity-0" />
             <span
               data-pill
               aria-current={i === step ? 'step' : undefined}
               className={`relative flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold sm:text-sm ${
-                i === step ? 'bg-ink text-cream' : i < step ? 'text-ink' : 'text-soft/60'
+                i === step ? 'bg-accent text-white' : i < step ? 'text-text' : 'text-muted'
               }`}
             >
-              <span className="relative grid place-items-center font-display">
+              <span className="relative grid place-items-center font-heading">
                 <span data-num>{i + 1}</span>
                 <svg viewBox="0 0 16 16" aria-hidden className="absolute size-3.5">
                   <path

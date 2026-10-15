@@ -3,28 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#fff7ec" />
-    <meta name="description" content="Photobooth online gratis: pilih strip 3 sampai 10 frame, foto pakai kamera atau upload, hias, lalu unduh." />
-    <title>Photobooth Online</title>
+    <meta name="theme-color" content="#fbfaf8" />
+    <meta name="description" content="InWebBooth, photobooth online gratis: pilih strip 3 sampai 10 frame, foto pakai kamera atau upload, hias, lalu unduh." />
+    <title>InWebBooth · Photobooth Online</title>
     <script>
       // Zona inwebsite.online tidak memaksa HTTPS; login (cookie __Host-, callback Auth0) hanya jalan di https.
       if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1')
         location.replace('https://' + location.host + location.pathname + location.search + location.hash)
     </script>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Bebas+Neue&family=Caveat:wght@600&family=DM+Serif+Display&family=Dancing+Script:wght@600&family=Fredoka:wght@500;600;700&family=Pacifico&family=Permanent+Marker&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Press+Start+2P&family=Space+Mono:wght@700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Bebas+Neue&family=Caveat:wght@600&family=DM+Serif+Display&family=Dancing+Script:wght@600&family=Fredoka:wght@500;600;700&family=Inter:wght@400;600;700&family=Pacifico&family=Permanent+Marker&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Press+Start+2P&family=Space+Mono:wght@700&display=swap"
     />
   </head>
   <body>
     <!-- Tampilan sementara selama JS dimuat (diganti React begitu siap), supaya di koneksi lambat tidak terlihat mati. -->
     <div id="root">
-      <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#fff7ec;color:#6f625a;font:600 15px/1.4 system-ui,sans-serif">
-        <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true"><rect x="18" y="4" width="28" height="56" rx="4" fill="#1f1a17"/><rect x="22" y="9" width="20" height="13" rx="2" fill="#ff4f6d"/><rect x="22" y="25" width="20" height="13" rx="2" fill="#ffd166"/><rect x="22" y="41" width="20" height="13" rx="2" fill="#7bdff2"/></svg>
-        <span>Memuat photobooth…</span>
+      <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#fbfaf8;color:#5a6472;font:600 15px/1.4 system-ui,sans-serif">
+        <img src="/brand/inwebbooth/favicon.svg" width="56" height="56" alt="" />
+        <span>Memuat InWebBooth…</span>
       </div>
     </div>
     <noscript>Photobooth butuh JavaScript. Aktifkan JavaScript di browser kamu.</noscript>

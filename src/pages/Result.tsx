@@ -98,19 +98,19 @@ export function ResultPage() {
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 overflow-y-auto p-4 lg:flex-row lg:p-6">
       <div ref={boxRef} className="flex min-h-[45dvh] flex-1 items-center justify-center lg:min-h-0">
-        <MiniStrip input={input} scale={previewScale} placeholders={false} className="max-h-full max-w-full shadow-[0_10px_30px_rgba(31,26,23,0.3)]" />
+        <MiniStrip input={input} scale={previewScale} placeholders={false} className="max-h-full max-w-full shadow-[0_10px_30px_rgba(20,24,31,0.3)]" />
       </div>
 
       <aside className="flex flex-col gap-4 lg:w-96">
         <div className="card space-y-4 p-4">
-          <h1 className="font-display text-2xl font-bold">Strip-mu sudah jadi!</h1>
+          <h1 className="font-heading text-2xl font-bold">Strip-mu sudah jadi!</h1>
           {user ? (
             <QuotaBar used={quota.used} limit={quota.limit} />
           ) : (
-            <p className="text-sm text-soft">Masuk dulu untuk mengunduh. Gratis {quota.limit} strip per hari tanpa watermark.</p>
+            <p className="text-sm text-muted">Masuk dulu untuk mengunduh. Gratis {quota.limit} strip per hari tanpa watermark.</p>
           )}
           {willWatermark && (
-            <p className="rounded-xl bg-sun/60 p-3 text-sm">
+            <p className="rounded-xl bg-warning-subtle p-3 text-sm text-warning">
               Jatah gratis hari ini sudah habis, jadi strip ini diberi watermark. Jatah kembali penuh jam 00.00 WIB.
             </p>
           )}
@@ -118,17 +118,17 @@ export function ResultPage() {
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold">Ukuran</span>
-              <span className="text-soft tabular-nums">{px} px</span>
+              <span className="text-muted tabular-nums">{px} px</span>
             </div>
-            <div ref={formatRef} className="no-scrollbar relative flex gap-1 overflow-x-auto rounded-full border-2 border-ink p-0.5 font-bold">
-              <span data-pill aria-hidden className="invisible absolute top-0.5 bottom-0.5 left-0 rounded-full bg-ink" />
+            <div ref={formatRef} className="no-scrollbar relative flex gap-1 overflow-x-auto rounded-full border border-border bg-surface p-0.5 font-bold">
+              <span data-pill aria-hidden className="invisible absolute top-0.5 bottom-0.5 left-0 rounded-full bg-accent" />
               {FORMAT_IDS.map((id) => (
                 <button
                   key={id}
                   data-item
                   onClick={() => setDesign({ format: id })}
                   aria-pressed={design.format === id}
-                  className={`relative z-10 shrink-0 flex-1 rounded-full px-3 py-1 whitespace-nowrap transition-colors duration-200 ${design.format === id ? 'text-cream' : ''}`}
+                  className={`relative z-10 shrink-0 flex-1 rounded-full px-3 py-1 whitespace-nowrap transition-colors duration-200 ${design.format === id ? 'text-white' : ''}`}
                 >
                   {SHORT[id]}
                 </button>
@@ -136,60 +136,60 @@ export function ResultPage() {
             </div>
             {design.format === 'cetak' && (
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={hd} onChange={(e) => setHd(e.target.checked)} className="size-4 accent-ink" />
+                <input type="checkbox" checked={hd} onChange={(e) => setHd(e.target.checked)} className="size-4 accent-accent" />
                 HD 2× (600 dpi, berkas lebih besar)
               </label>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <SparkleButton burst={done.jpg} buttonClassName="btn w-full bg-pop text-white" disabled={!!busy} onClick={() => save('jpg')}>
+            <SparkleButton burst={done.jpg} buttonClassName="btn btn-primary w-full" disabled={!!busy} onClick={() => save('jpg')}>
               {busy === 'jpg' ? 'Membuat…' : 'Unduh JPG'}
             </SparkleButton>
-            <SparkleButton burst={done.png} buttonClassName="btn w-full bg-paper" disabled={!!busy} onClick={() => save('png')}>
+            <SparkleButton burst={done.png} buttonClassName="btn w-full" disabled={!!busy} onClick={() => save('png')}>
               {busy === 'png' ? 'Membuat…' : 'Unduh PNG'}
             </SparkleButton>
             {live && (
-              <SparkleButton burst={done.gif} className="col-span-2" buttonClassName="btn w-full bg-sky" disabled={!!busy} onClick={() => save('gif')}>
+              <SparkleButton burst={done.gif} className="col-span-2" buttonClassName="btn w-full" disabled={!!busy} onClick={() => save('gif')}>
                 {busy === 'gif' ? `Membuat GIF… ${Math.round(progress * 100)}%` : 'Unduh GIF live ✨'}
               </SparkleButton>
             )}
             {canShare && (
-              <button className="btn col-span-2 bg-paper" disabled={!!busy} onClick={share}>
+              <button className="btn col-span-2" disabled={!!busy} onClick={share}>
                 Bagikan / simpan ke galeri
               </button>
             )}
           </div>
-          {error && <p className="text-sm font-semibold text-pop-dark">{error}</p>}
-          <p className="text-xs text-soft">
+          {error && <p className="text-sm font-semibold text-danger">{error}</p>}
+          <p className="text-xs text-muted">
             {design.format === 'cetak' ? `Siap cetak 300 dpi: ${input.layout.print}.` : `Pas untuk ${FORMATS[design.format].label}.`} Unduh ulang, ganti
             ukuran/format, atau ubah stiker strip yang sama tidak memakan jatah.
           </p>
         </div>
 
-        <div className="rounded-2xl border-2 border-dashed border-ink/30 p-4 text-sm">
+        <div className="rounded-2xl border-2 border-dashed border-border-strong p-4 text-sm">
           <p className="font-bold">{empty ? `Masih ada ${empty} frame kosong` : 'Mau temanmu ikut punya?'}</p>
-          <p className="mt-1 text-soft">
+          <p className="mt-1 text-muted">
             {empty
               ? 'Kirim berkas patungan ke teman supaya dia mengisi frame yang kosong dari HP-nya.'
               : 'Kirim berkas patungan; temanmu bisa membuka, menghias ulang, dan mengunduh strip yang sama.'}
           </p>
-          <button className="btn mt-3 w-full bg-sky text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
+          <button className="btn mt-3 w-full text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
             Kirim ke teman
           </button>
         </div>
 
-        <div className="rounded-2xl bg-ink p-4 text-sm text-cream">
+        <div className="rounded-2xl border border-border bg-bg-subtle p-4 text-sm">
           <p className="font-bold">Segera: simpan & bagikan lewat link/QR</p>
-          <p className="mt-1 text-cream/70">Strip tersimpan di cloud dan bisa dibuka lewat link atau QR code. Fitur premium.</p>
+          <p className="mt-1 text-muted">Strip tersimpan di cloud dan bisa dibuka lewat link atau QR code. Fitur premium.</p>
         </div>
 
         <div className="flex gap-2 pb-4">
-          <button className="btn flex-1 bg-paper text-sm" onClick={(e) => stepTo('/app/hias', e)}>
+          <button className="btn flex-1 text-sm" onClick={(e) => stepTo('/app/hias', e)}>
             ← Hias lagi
           </button>
           <button
-            className="btn flex-1 bg-paper text-sm"
+            className="btn flex-1 text-sm"
             onClick={(e) => stepTo('/app/foto', e, resetPhotos)}
           >
             Foto lagi

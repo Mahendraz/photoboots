@@ -15,8 +15,8 @@ const BOTTOM_LEFT = 'polygon(0 36%, 36% 36%, 36% 54.5%, 74% 54.5%, 74% 100%, 0 1
 /** Celah di antara jari, relatif terhadap gambar tangan. */
 const WIN = { x: 0.33, y: 0.33, w: 0.32, h: 0.24 }
 /** Celah itu jendela ke kamera; sisanya ditutup bayangan tinta yang sangat lebar. */
-const SHADE = '0 0 0 200vmax rgba(31,26,23,1)'
-const CLEAR = '0 0 0 200vmax rgba(31,26,23,0)'
+const SHADE = '0 0 0 200vmax rgba(13,17,23,1)'
+const CLEAR = '0 0 0 200vmax rgba(13,17,23,0)'
 const PAD = 10
 
 export type GateState = 'opening' | 'ready' | 'error'
@@ -146,7 +146,7 @@ export function CameraGate({ state, message, onUpload, onRetry }: { state: GateS
           </div>
 
           <div data-stop className="invisible absolute top-[60%] left-1/2" style={{ width: stopSize, height: stopSize }} aria-hidden>
-            <span className="absolute inset-[8%] rounded-full border-2 border-dashed border-cream/40 bg-cream/10" />
+            <span className="absolute inset-[8%] rounded-full border-2 border-dashed border-white/40 bg-white/10" />
             <img src={STOP} alt="" draggable={false} className="relative size-full" />
           </div>
 
@@ -156,26 +156,26 @@ export function CameraGate({ state, message, onUpload, onRetry }: { state: GateS
               type="button"
               tabIndex={state === 'error' ? 0 : -1}
               onClick={onUpload}
-              className="pointer-events-auto relative z-10 -mb-4 flex w-full flex-col items-center gap-0.5 rounded-2xl border-2 border-dashed border-ink bg-paper px-2 py-2 text-center text-ink shadow-hard-sm outline-none focus-visible:ring-2 focus-visible:ring-pop"
+              className="pointer-events-auto relative z-10 -mb-4 flex w-full flex-col items-center gap-0.5 rounded-2xl border border-border bg-surface px-2 py-2 text-center text-text shadow-md outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <svg viewBox="0 0 24 24" className="size-6 text-pop" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg viewBox="0 0 24 24" className="size-6 text-accent" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <rect x="3" y="5" width="18" height="15" rx="3" />
                 <path d="M7 16l3.5-4 2.5 3 2-2 2 3" />
                 <path d="M12 2.5v6M9.5 5L12 2.5 14.5 5" />
               </svg>
               <span className="text-xs leading-tight font-bold">Upload foto</span>
-              <span className="text-[10px] leading-tight text-soft">bisa pilih beberapa</span>
+              <span className="text-[10px] leading-tight text-muted">bisa pilih beberapa</span>
             </button>
             <img data-palm src={OPEN_PALM} alt="" draggable={false} aria-hidden style={{ width: palmW }} />
           </div>
         </>
       )}
 
-      {state === 'opening' && <p className="absolute inset-x-0 bottom-3 text-center text-sm text-cream/80">Membuka kamera…</p>}
+      {state === 'opening' && <p className="absolute inset-x-0 bottom-3 text-center text-sm text-inverse-muted">Membuka kamera…</p>}
       {state === 'error' && (
-        <div className="absolute inset-x-0 top-0 flex flex-col items-center gap-1.5 p-3 text-center text-xs text-cream sm:text-sm" role="alert">
+        <div className="absolute inset-x-0 top-0 flex flex-col items-center gap-1.5 p-3 text-center text-xs text-white sm:text-sm" role="alert">
           <p>{message}</p>
-          <button type="button" onClick={onRetry} className="pointer-events-auto rounded-full border-2 border-cream/70 px-3 py-0.5 text-xs font-bold outline-none focus-visible:ring-2 focus-visible:ring-pop">
+          <button type="button" onClick={onRetry} className="pointer-events-auto rounded-full border-2 border-white/70 px-3 py-0.5 text-xs font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent">
             Coba kamera lagi
           </button>
         </div>

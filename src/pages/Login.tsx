@@ -96,8 +96,8 @@ export function LoginPage() {
     }
   }
 
-  const field = 'w-full rounded-xl border-2 border-ink bg-white px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-pop'
-  const title = view === 'reset' ? 'Reset kata sandi kamu' : view === 'signup' ? 'Buat akun Photobooth' : 'Masuk ke Photobooth'
+  const field = 'w-full rounded-md border border-border bg-surface px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  const title = view === 'reset' ? 'Reset kata sandi kamu' : view === 'signup' ? 'Buat akun InWebBooth' : 'Masuk ke InWebBooth'
   const body =
     view === 'reset'
       ? 'Masukkan email kamu dan kami akan mengirimkan tautan untuk memilih kata sandi baru.'
@@ -109,28 +109,28 @@ export function LoginPage() {
         <div className="relative w-full pt-[104px]">
           <Mascot ref={mascot} />
           <div className="card relative z-10 w-full p-5">
-            <h1 className="text-center font-display text-2xl font-bold">{title}</h1>
-            <p className="mt-2 text-center text-sm text-soft">{body}</p>
+            <h1 className="text-center font-heading text-2xl font-bold">{title}</h1>
+            <p className="mt-2 text-center text-sm text-muted">{body}</p>
 
-            {!loaded && <p className="mt-6 text-center text-sm text-soft">Memuat…</p>}
+            {!loaded && <p className="mt-6 text-center text-sm text-muted">Memuat…</p>}
 
             {loaded && login.configured && view !== 'reset' && (
               <>
                 {login.email && (
-                  <div role="tablist" className="mt-5 grid grid-cols-2 rounded-full border-2 border-ink p-0.5 text-sm font-bold">
+                  <div role="tablist" className="mt-5 grid grid-cols-2 rounded-full border border-border bg-surface p-0.5 text-sm font-bold">
                     {(['login', 'signup'] as const).map((v) => (
-                      <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => go(v)} className={`min-h-9 rounded-full ${view === v ? 'bg-ink text-cream' : ''}`}>
+                      <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => go(v)} className={`min-h-9 rounded-full ${view === v ? 'bg-accent text-white' : ''}`}>
                         {v === 'login' ? 'Masuk' : 'Buat akun'}
                       </button>
                     ))}
                   </div>
                 )}
-                <a href={googleLoginHref(back)} onClick={google} aria-disabled={busy} className="btn mt-4 w-full bg-paper" {...cheer}>
+                <a href={googleLoginHref(back)} onClick={google} aria-disabled={busy} className="btn mt-4 w-full" {...cheer}>
                   <GoogleIcon />
                   Lanjutkan dengan Google
                 </a>
                 {login.email && (
-                  <p className="my-4 flex items-center gap-3 text-xs text-soft before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">atau gunakan email kamu</p>
+                  <p className="my-4 flex items-center gap-3 text-xs text-muted before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">atau gunakan email kamu</p>
                 )}
               </>
             )}
@@ -139,20 +139,20 @@ export function LoginPage() {
               <form onSubmit={submit} className={`flex flex-col gap-3 ${view === 'reset' ? 'mt-5' : ''}`}>
                 {view === 'signup' && (
                   <label className="block">
-                    <span className="mb-1 block text-xs font-bold text-soft">Nama (opsional)</span>
+                    <span className="mb-1 block text-xs font-bold text-muted">Nama (opsional)</span>
                     <input name="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className={field} />
                   </label>
                 )}
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold text-soft">Email</span>
+                  <span className="mb-1 block text-xs font-bold text-muted">Email</span>
                   <input name="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={field} />
                 </label>
                 {view !== 'reset' && (
                   <label className="block">
-                    <span className="mb-1 flex items-center justify-between text-xs font-bold text-soft">
+                    <span className="mb-1 flex items-center justify-between text-xs font-bold text-muted">
                       Kata Sandi
                       {view === 'login' && (
-                        <button type="button" onClick={() => go('reset')} className="font-bold text-pop-dark hover:underline">
+                        <button type="button" onClick={() => go('reset')} className="font-bold text-accent hover:underline">
                           Lupa kata sandi?
                         </button>
                       )}
@@ -171,30 +171,30 @@ export function LoginPage() {
                       {...shy}
                     />
                     {view === 'signup' && (
-                      <span id="password-hint" className="mt-1 block text-xs text-soft">
+                      <span id="password-hint" className="mt-1 block text-xs text-muted">
                         Minimal 15 karakter. Frasa pendek juga boleh, misalnya “foto bareng di batam”.
                       </span>
                     )}
                   </label>
                 )}
-                <button type="submit" disabled={busy} className="btn mt-1 w-full bg-pop text-white" {...cheer}>
+                <button type="submit" disabled={busy} className="btn btn-primary mt-1 w-full" {...cheer}>
                   {busy ? 'Sebentar…' : view === 'login' ? 'Masuk' : view === 'signup' ? 'Buat akun' : 'Kirim tautan reset'}
                 </button>
               </form>
             )}
 
             {view === 'reset' && (
-              <button type="button" onClick={() => go('login')} className="mt-3 w-full text-center text-sm font-bold text-pop-dark hover:underline">
+              <button type="button" onClick={() => go('login')} className="mt-3 w-full text-center text-sm font-bold text-accent hover:underline">
                 Kembali ke masuk
               </button>
             )}
 
             {loaded && login.dev && <DevLogin onDone={async () => (await refresh(), navigate(back, { replace: true }))} />}
-            {loaded && !login.configured && !login.dev && <p className="mt-5 text-center text-sm font-semibold text-pop-dark">Login belum dikonfigurasi di server.</p>}
+            {loaded && !login.configured && !login.dev && <p className="mt-5 text-center text-sm font-semibold text-danger">Login belum dikonfigurasi di server.</p>}
 
             <div aria-live="polite" className="mt-3 empty:hidden">
               {error && (
-                <p role="alert" className="text-sm font-semibold text-pop-dark">
+                <p role="alert" className="text-sm font-semibold text-danger">
                   {error}
                 </p>
               )}
@@ -202,7 +202,7 @@ export function LoginPage() {
             </div>
           </div>
         </div>
-        <button onClick={() => navigate(back)} className="mt-4 text-sm font-semibold text-soft hover:underline">
+        <button onClick={() => navigate(back)} className="mt-4 text-sm font-semibold text-muted hover:underline">
           ← Kembali
         </button>
       </div>
@@ -214,7 +214,7 @@ function DevLogin({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState('')
   return (
     <form
-      className="mt-5 space-y-2 rounded-2xl border-2 border-dashed border-line p-3"
+      className="mt-5 space-y-2 rounded-2xl border-2 border-dashed border-border p-3"
       onSubmit={async (e) => {
         e.preventDefault()
         if (await devLogin(name || 'Tester')) onDone()
@@ -224,8 +224,8 @@ function DevLogin({ onDone }: { onDone: () => void }) {
         Mode pengembangan (tanpa Auth0)
       </label>
       <div className="flex gap-2">
-        <input id="dev-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" className="min-w-0 flex-1 rounded-full border-2 border-ink bg-paper px-4" />
-        <button className="btn bg-sun">Masuk</button>
+        <input id="dev-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-4" />
+        <button className="btn">Masuk</button>
       </div>
     </form>
   )

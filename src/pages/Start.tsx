@@ -44,11 +44,11 @@ export function StartPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl px-4 pt-6 pb-32 sm:px-6">
-        <h1 className="font-display text-3xl font-bold sm:text-4xl">Mau strip yang mana?</h1>
-        <p className="mt-1 text-soft">Pilih jumlah frame. Template, filter, dan stiker bisa diganti nanti.</p>
+        <h1 className="font-heading text-3xl font-bold sm:text-4xl">Mau strip yang mana?</h1>
+        <p className="mt-1 text-muted">Pilih jumlah frame. Template, filter, dan stiker bisa diganti nanti.</p>
 
         <section className="mt-5">
-          <h2 className="mb-2 font-display text-lg font-bold">Mau dipakai buat apa?</h2>
+          <h2 className="mb-2 font-heading text-lg font-bold">Mau dipakai buat apa?</h2>
           <FormatPicker value={design.format} onChange={(format) => setDesign({ format })} />
         </section>
 
@@ -61,14 +61,14 @@ export function StartPage() {
                 onClick={() => setLayout(l.id)}
                 aria-pressed={active}
                 className={`group flex flex-col items-center gap-2 rounded-2xl border-2 p-2.5 text-center transition ${
-                  active ? 'border-ink bg-sun shadow-hard' : 'border-line bg-paper hover:border-ink'
+                  active ? 'border-accent bg-accent-subtle shadow-md' : 'border-border bg-surface hover:border-border-strong'
                 }`}
               >
                 <div className="flex h-28 items-center justify-center sm:h-32">
                   <MiniStrip input={input} scale={0.07} className="h-full w-auto rounded-sm shadow-[0_2px_6px_rgba(0,0,0,0.15)]" />
                 </div>
                 <span className="text-sm leading-tight font-bold">{l.name}</span>
-                <span className="text-xs leading-tight text-soft">{l.desc}</span>
+                <span className="text-xs leading-tight text-muted">{l.desc}</span>
               </button>
             )
           })}
@@ -76,7 +76,7 @@ export function StartPage() {
 
         <section className="mt-8 grid gap-6 sm:grid-cols-2">
           <div>
-            <h2 className="font-display text-lg font-bold">Bentuk foto</h2>
+            <h2 className="font-heading text-lg font-bold">Bentuk foto</h2>
             <div className="mt-2 flex flex-wrap gap-2">
               {(Object.keys(ASPECTS) as AspectId[]).map((a) => (
                 <button
@@ -84,7 +84,7 @@ export function StartPage() {
                   onClick={() => setDesign({ aspect: a })}
                   aria-pressed={design.aspect === a}
                   className={`flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-sm font-semibold ${
-                    design.aspect === a ? 'border-ink bg-ink text-cream' : 'border-line bg-paper hover:border-ink'
+                    design.aspect === a ? 'border-accent bg-accent text-white' : 'border-border bg-surface hover:border-border-strong'
                   }`}
                 >
                   <span
@@ -99,7 +99,7 @@ export function StartPage() {
 
           {layout.regions === 2 && (
             <div>
-              <h2 className="font-display text-lg font-bold">Strip kiri & kanan</h2>
+              <h2 className="font-heading text-lg font-bold">Strip kiri & kanan</h2>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {(
                   [
@@ -111,25 +111,25 @@ export function StartPage() {
                     key={id}
                     onClick={() => setDesign({ photoMode: id })}
                     aria-pressed={design.photoMode === id}
-                    className={`rounded-2xl border-2 p-3 text-left ${design.photoMode === id ? 'border-ink bg-sky/50' : 'border-line bg-paper hover:border-ink'}`}
+                    className={`rounded-2xl border-2 p-3 text-left ${design.photoMode === id ? 'border-accent bg-accent-subtle' : 'border-border bg-surface hover:border-border-strong'}`}
                   >
                     <span className="block font-bold">{name}</span>
-                    <span className="mt-0.5 block text-xs text-soft">{desc}</span>
+                    <span className="mt-0.5 block text-xs text-muted">{desc}</span>
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-soft">Desain frame kiri dan kanan juga bisa dibedakan di langkah Hias.</p>
+              <p className="mt-2 text-xs text-muted">Desain frame kiri dan kanan juga bisa dibedakan di langkah Hias.</p>
             </div>
           )}
         </section>
 
-        <section className="mt-8 rounded-2xl border-2 border-dashed border-ink/30 p-4">
-          <h2 className="font-display text-lg font-bold">Foto bareng teman dari jauh?</h2>
-          <p className="mt-1 text-sm text-soft">
+        <section className="mt-8 rounded-2xl border-2 border-dashed border-border-strong p-4">
+          <h2 className="font-heading text-lg font-bold">Foto bareng teman dari jauh?</h2>
+          <p className="mt-1 text-sm text-muted">
             Satu orang foto dulu sebagian frame, lalu kirim <b>berkas patungan</b> lewat WhatsApp. Temannya buka berkas itu di sini dan
             mengisi frame sisanya. Tanpa server, fotonya cuma lewat chat kalian.
           </p>
-          <button className="btn mt-3 bg-paper text-sm" onClick={() => fileRef.current?.click()}>
+          <button className="btn mt-3 text-sm" onClick={() => fileRef.current?.click()}>
             Buka berkas dari teman
           </button>
           <input
@@ -143,17 +143,17 @@ export function StartPage() {
               if (f) void openFile(f)
             }}
           />
-          {error && <p className="mt-2 text-sm font-semibold text-pop-dark">{error}</p>}
+          {error && <p className="mt-2 text-sm font-semibold text-danger">{error}</p>}
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 border-t-2 border-ink bg-paper/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <p className="text-sm">
             <b>{layout.name}</b> · {count} foto ·{' '}
-            <span className="text-soft">{design.format === 'cetak' ? layout.print : FORMATS[design.format].desc}</span>
+            <span className="text-muted">{design.format === 'cetak' ? layout.print : FORMATS[design.format].desc}</span>
           </p>
-          <button className="btn bg-pop text-white" onClick={(e) => stepTo('/app/foto', e)}>
+          <button className="btn btn-primary" onClick={(e) => stepTo('/app/foto', e)}>
             Mulai foto →
           </button>
         </div>

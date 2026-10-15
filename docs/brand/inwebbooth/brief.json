@@ -1,0 +1,24 @@
+{
+  "name": "InWebBooth",
+  "slug": "inwebbooth",
+  "repo": "C:/WORK/github/photoboots",
+  "font": "Plus Jakarta Sans",
+  "weight": 700,
+  "source": "docs/design.md: wordmark",
+  "concept": "Kamera dengan strip foto 2 frame keluar dari atas; lensa, jendela bidik, dan lampu kilat sebagai potongan transparan",
+  "variants": [
+    "logo-horizontal-light",
+    "logo-horizontal-dark",
+    "logo-stacked-light",
+    "logo-stacked-dark",
+    "mark-blue",
+    "mark-white"
+  ],
+  "symbolColor": "#0B5FFF in both themes",
+  "wordmark": {
+    "light": "#14181F",
+    "dark": "#FFFFFF"
+  },
+  "generator": "build.mjs (SVG kode + opentype.js), bukan generate AI",
+  "status": "Draft, dipasang di repo photoboots"
+}

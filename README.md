@@ -1,6 +1,8 @@
-# Photobooth Online
+# InWebBooth · Photobooth Online
 
 Photobooth gratis di browser untuk `photobooth.inwebsite.online`. Pengguna memilih layout strip, foto pakai kamera atau upload, menghias, lalu mengunduh.
+
+Tampilan app mengikuti design system InWebsite (lihat `docs/design.md`); logo InWebBooth di `docs/brand/inwebbooth/`.
 
 - **Layout**: Strip 3 & 4, Kiri–Kanan 6/8/10 (dua strip di kertas 4R, isinya kembar atau beda, frame kiri & kanan bisa beda), Grid 4/6/8/9/10, Polaroid.
 - **Bentuk foto**: landscape 4:3, portrait 3:4, kotak, 16:9, 4:5.

@@ -15,11 +15,11 @@ export function AccountSheet() {
       <div className="space-y-4">
         <p>
           Halo, <b>{user.name}</b>
-          {user.email && <span className="block text-sm text-soft">{user.email}</span>}
+          {user.email && <span className="block text-sm text-muted">{user.email}</span>}
         </p>
         <QuotaBar used={quota.used} limit={quota.limit} />
         <button
-          className="btn w-full bg-paper"
+          className="btn w-full"
           onClick={async () => {
             // Keluar berpindah halaman (logout Auth0): simpan dulu foto sesi ini.
             await stashSession()
@@ -28,7 +28,7 @@ export function AccountSheet() {
         >
           Keluar
         </button>
-        <p className="text-xs text-soft">Keluar mengakhiri sesi di semua perangkat.</p>
+        <p className="text-xs text-muted">Keluar mengakhiri sesi di semua perangkat.</p>
       </div>
     </Sheet>
   )
@@ -46,7 +46,7 @@ export function QuotaBar({ used, limit }: { used: number; limit: number }) {
       </div>
       <div className="flex gap-1" aria-hidden>
         {Array.from({ length: limit }, (_, i) => (
-          <span key={i} className={`h-3 flex-1 rounded-full border-2 border-ink ${i < used ? 'bg-line' : 'bg-mint'}`} />
+          <span key={i} className={`h-2.5 flex-1 rounded-full ${i < used ? 'bg-border' : 'bg-accent'}`} />
         ))}
       </div>
     </div>

@@ -1,20 +1,31 @@
 @import "tailwindcss";
 
+/* Token warna dari design system InWebsite v3 "Tenang & Terpercaya" (docs/design.md). Satu aksen biru,
+   netral hangat. Warna isi strip (template, stiker, teks) tidak lewat token ini. */
 @theme {
-  --color-cream: #fff7ec;
-  --color-paper: #fffdf8;
-  --color-ink: #1f1a17;
-  --color-soft: #6f625a;
-  --color-line: #ecdcc8;
-  --color-pop: #ff4f6d;
-  --color-pop-dark: #d92f4f;
-  --color-sun: #ffd166;
-  --color-sky: #7bdff2;
-  --color-mint: #9be8c6;
-  --font-display: "Fredoka", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --shadow-hard: 3px 3px 0 0 var(--color-ink);
-  --shadow-hard-sm: 2px 2px 0 0 var(--color-ink);
+  --color-bg: #fbfaf8;
+  --color-bg-subtle: #f2f0ec;
+  --color-surface: #ffffff;
+  --color-border: #e3dfd8;
+  --color-border-strong: #c9c3b8;
+  --color-text: #14181f;
+  --color-muted: #5a6472;
+  --color-inverse: #0d1117;
+  --color-inverse-muted: #a3acba;
+  --color-accent: #0b5fff;
+  --color-accent-hover: #0a4fd6;
+  --color-accent-subtle: #e8f0ff;
+  --color-success: #1b7a4b;
+  --color-warning: #8a5a00;
+  --color-warning-subtle: #fbf1dc;
+  --color-danger: #c62828;
+  --font-heading: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-md: 10px;
+  --shadow-sm: 0 1px 2px rgb(20 24 31 / 0.05);
+  --shadow-md: 0 4px 12px rgb(20 24 31 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(20 24 31 / 0.12);
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 html,
@@ -24,50 +35,76 @@ body,
 }
 
 body {
-  background: var(--color-cream);
-  color: var(--color-ink);
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  text-wrap: balance;
 }
 
 button {
   cursor: pointer;
 }
 
-/* Tombol bergaya stiker: border tinta + bayangan keras, turun sedikit saat ditekan. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Tombol sekunder (bawaan) dan primer: tinggi 44px, sudut 10px, weight 600, tanpa bayangan (design.md §7.1). */
 @utility btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   min-height: 2.75rem;
-  padding: 0 1.1rem;
-  border: 2px solid var(--color-ink);
-  border-radius: 999px;
-  font-weight: 700;
-  box-shadow: var(--shadow-hard);
+  padding: 0 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
   transition:
-    transform 0.08s,
-    box-shadow 0.08s,
-    background-color 0.15s;
+    transform 0.2s var(--ease-out),
+    background-color 0.2s,
+    border-color 0.2s;
   white-space: nowrap;
   user-select: none;
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+    background-color: var(--color-bg-subtle);
+  }
   &:active:not(:disabled) {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 0 var(--color-ink);
+    transform: translateY(1px);
   }
   &:disabled {
-    opacity: 0.45;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }
 
+@utility btn-primary {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+  color: #fff;
+  &:hover:not(:disabled) {
+    border-color: var(--color-accent-hover);
+    background-color: var(--color-accent-hover);
+  }
+}
+
 @utility card {
-  background: var(--color-paper);
-  border: 2px solid var(--color-ink);
-  border-radius: 1.25rem;
-  box-shadow: var(--shadow-hard);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
 @utility no-scrollbar {

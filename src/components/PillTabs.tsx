@@ -18,8 +18,8 @@ export interface PillTab<T extends string> {
 
 /**
  * Tab dari snippet Tab Pill Slider InWebAsset: pil melar ke tab yang dipilih lalu memantul, ikon tab
- * baru meloncat, dan isi panel bergeser masuk dari arah perpindahan. Gaya pilnya mengikuti photobooth
- * (garis tinta, bayangan keras).
+ * baru meloncat, dan isi panel bergeser masuk dari arah perpindahan. Gaya pilnya mengikuti design
+ * system InWebsite (pil --accent-subtle, tanpa garis).
  */
 export function PillTabs<T extends string>({
   tabs,
@@ -76,8 +76,8 @@ export function PillTabs<T extends string>({
   }
 
   return (
-    <div ref={root} role="tablist" aria-label={label} onKeyDown={onKeyDown} className="relative flex shrink-0 gap-1 border-b-2 border-ink p-1.5">
-      <span data-pill aria-hidden className="invisible absolute top-1.5 bottom-1.5 left-0 rounded-2xl border-2 border-ink shadow-hard-sm" />
+    <div ref={root} role="tablist" aria-label={label} onKeyDown={onKeyDown} className="relative flex shrink-0 gap-1 border-b border-border p-1.5">
+      <span data-pill aria-hidden className="invisible absolute top-1.5 bottom-1.5 left-0 rounded-xl" />
       {tabs.map((t, i) => (
         <button
           key={t.id}
@@ -88,8 +88,8 @@ export function PillTabs<T extends string>({
           aria-selected={i === index}
           tabIndex={i === index ? 0 : -1}
           onClick={() => onChange(t.id)}
-          className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-[11px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-pop sm:text-xs"
-          style={{ color: i === index ? t.ink : 'var(--color-soft)', transition: 'color 0.2s' }}
+          className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-[11px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent sm:text-xs"
+          style={{ color: i === index ? t.ink : 'var(--color-muted)', transition: 'color 0.2s' }}
         >
           <img data-icon src={t.icon} alt="" draggable={false} className="size-6" />
           {t.label}

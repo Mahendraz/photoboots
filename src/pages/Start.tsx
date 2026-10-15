@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useStepNav } from '../components/Curtain'
 import { FormatPicker } from '../components/FormatPicker'
+import { FramePicker } from '../components/FramePicker'
 import { MiniStrip } from '../components/MiniStrip'
 import { ASPECTS, FORMATS, LAYOUTS, layoutById, photoCount, type AspectId } from '../lib/layouts'
 import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
@@ -45,7 +46,7 @@ export function StartPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl px-4 pt-6 pb-32 sm:px-6">
         <h1 className="font-heading text-3xl font-bold sm:text-4xl">Mau strip yang mana?</h1>
-        <p className="mt-1 text-muted">Pilih jumlah frame. Template, filter, dan stiker bisa diganti nanti.</p>
+        <p className="mt-1 text-muted">Pilih jumlah frame dan template-nya. Stiker, filter, dan teks ditambah di langkah Hias.</p>
 
         <section className="mt-5">
           <h2 className="mb-2 font-heading text-lg font-bold">Mau dipakai buat apa?</h2>
@@ -118,9 +119,15 @@ export function StartPage() {
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-muted">Desain frame kiri dan kanan juga bisa dibedakan di langkah Hias.</p>
+              <p className="mt-2 text-xs text-muted">Desain frame kiri dan kanan bisa dibedakan di Template frame di bawah.</p>
             </div>
           )}
+        </section>
+
+        <section className="mt-8">
+          <h2 className="font-heading text-lg font-bold">Template frame</h2>
+          <p className="mt-1 mb-3 text-sm text-muted">Masih bisa diganti di langkah Hias setelah fotonya kelihatan.</p>
+          <FramePicker bleed="-mx-4 px-4 sm:-mx-6 sm:px-6" grid="grid-cols-4 sm:grid-cols-6 lg:grid-cols-8" />
         </section>
 
         <section className="mt-8 rounded-2xl border-2 border-dashed border-border-strong p-4">

@@ -39,6 +39,11 @@ interface BoothState {
   design: Design
   settings: CaptureSettings
   photos: (Photo | null)[]
+  /**
+   * Foto yang tidak muat setelah layout diganti ke jumlah frame yang lebih sedikit (mis. 6 → 3), disimpan
+   * berurutan setelah `photos`. Kembali ke layout yang lebih banyak mengisinya lagi, jadi tidak perlu foto ulang.
+   */
+  sparePhotos: (Photo | null)[]
   /** ID strip untuk kuota: berganti tiap kali isi foto berubah. */
   stripId: string
   /** Nama pengirim berkas patungan (kalau sesi ini lanjutan dari teman). */
@@ -77,12 +82,20 @@ const defaultDesign: Design = {
 const sizePhotos = (photos: (Photo | null)[], n: number) =>
   Array.from({ length: n }, (_, i) => photos[i] ?? null)
 
+/** Bagi foto ke `n` frame yang terlihat; sisanya jadi cadangan (tanpa null di ekor). */
+function splitPhotos(all: (Photo | null)[], n: number) {
+  const spare = all.slice(n)
+  while (spare.length && !spare[spare.length - 1]) spare.pop()
+  return { photos: sizePhotos(all, n), sparePhotos: spare }
+}
+
 export const useBooth = create<BoothState>()(
   persist(
     (set, get) => ({
       design: defaultDesign,
       settings: { countdown: 3, interval: 2, mirror: true, facing: 'user', sound: true, live: true },
       photos: sizePhotos([], photoCount(layoutById(defaultDesign.layoutId), defaultDesign.photoMode)),
+      sparePhotos: [],
       stripId: newId(),
       patunganFrom: null,
 
@@ -90,8 +103,8 @@ export const useBooth = create<BoothState>()(
         set((s) => {
           const design = { ...s.design, ...patch }
           const n = photoCount(layoutById(design.layoutId), design.photoMode)
-          const resized = n !== s.photos.length
-          return { design, photos: resized ? sizePhotos(s.photos, n) : s.photos, stripId: resized ? newId() : s.stripId }
+          if (n === s.photos.length) return { design }
+          return { design, ...splitPhotos([...s.photos, ...s.sparePhotos], n), stripId: newId() }
         }),
       setLayout: (layoutId) => {
         const l = layoutById(layoutId)
@@ -104,7 +117,7 @@ export const useBooth = create<BoothState>()(
           photos[index] = photo
           return { photos, stripId: newId() }
         }),
-      resetPhotos: () => set((s) => ({ photos: s.photos.map(() => null), stripId: newId(), patunganFrom: null })),
+      resetPhotos: () => set((s) => ({ photos: s.photos.map(() => null), sparePhotos: [], stripId: newId(), patunganFrom: null })),
       addOverlay: (o) => {
         const id = newId()
         set((s) => ({ design: { ...s.design, overlays: [...s.design.overlays, { ...o, id }] } }))
@@ -124,6 +137,7 @@ export const useBooth = create<BoothState>()(
         set(() => ({
           design,
           photos: sizePhotos(photos, photoCount(layoutById(design.layoutId), design.photoMode)),
+          sparePhotos: [],
           stripId: newId(),
           patunganFrom: from,
         })),
@@ -131,6 +145,7 @@ export const useBooth = create<BoothState>()(
         set(() => ({
           design,
           photos: sizePhotos(photos, photoCount(layoutById(design.layoutId), design.photoMode)),
+          sparePhotos: [],
           stripId,
           patunganFrom: from,
         })),

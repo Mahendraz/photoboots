@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate } from 'react-router'
 import { useStepNav } from '../components/Curtain'
 import { FormatPicker } from '../components/FormatPicker'
-import { MiniStrip } from '../components/MiniStrip'
+import { FramePicker } from '../components/FramePicker'
 import { PillTabs, type PillTab } from '../components/PillTabs'
 import { StripEditor } from '../components/StripEditor'
 import { Toggle } from './Capture'
@@ -10,7 +10,7 @@ import { STICKER_PACKS } from '../data/stickers'
 import { applyFilter, FILTERS } from '../lib/filters'
 import { ASPECTS, layoutById, type AspectId } from '../lib/layouts'
 import type { Photo } from '../lib/render'
-import { CATEGORIES, FONTS, isIllustrated, TEMPLATES, templateById, type Category } from '../lib/templates'
+import { FONTS, templateById } from '../lib/templates'
 import { renderInput, useBooth } from '../store'
 
 type Tab = 'frame' | 'filter' | 'stiker' | 'teks' | 'atur'
@@ -33,7 +33,7 @@ export function EditPage() {
   const stepTo = useStepNav()
   const state = useBooth()
   const { design, photos, addOverlay, updateOverlay, removeOverlay, moveOverlay } = state
-  const [tab, setTab] = useState<Tab>('frame')
+  const [tab, setTab] = useState<Tab>('stiker')
   const [selected, setSelected] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const input = useMemo(() => renderInput({ design, photos }), [design, photos])
@@ -51,15 +51,14 @@ export function EditPage() {
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
-      <div className="relative min-h-0 flex-1 bg-bg-subtle lg:p-4">
-        <StripEditor input={input} selected={selected} onSelect={setSelected} onChange={updateOverlay} onRemove={(id) => (removeOverlay(id), setSelected(null))} />
-      </div>
-
-      <aside className="flex h-[46dvh] shrink-0 flex-col border-t border-border bg-surface lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l">
-        <PillTabs tabs={TABS} value={tab} onChange={setTab} label="Alat hias" panel={panelRef} />
-
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative min-h-0 flex-1 bg-bg-subtle lg:p-4">
+          <StripEditor input={input} selected={selected} onSelect={setSelected} onChange={updateOverlay} onRemove={(id) => (removeOverlay(id), setSelected(null))} />
+        </div>
+        {/* Toolbar stiker terpilih menempel di bawah strip, bukan di panel alat: di HP panel cuma 46dvh dan
+            toolbar di sana menutup daftar stiker sampai tinggal satu baris. */}
         {selectedOverlay && (
-          <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-accent-subtle px-2 py-1.5 no-scrollbar" aria-label="Atur stiker terpilih">
+          <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-border bg-accent-subtle px-2 py-1.5 no-scrollbar" aria-label="Atur stiker terpilih">
             <ToolBtn label="Kecilkan" onClick={() => updateOverlay(selectedOverlay.id, { size: Math.max(0.02, selectedOverlay.size / 1.15) })}>
               −
             </ToolBtn>
@@ -83,9 +82,14 @@ export function EditPage() {
             </ToolBtn>
           </div>
         )}
+      </div>
+
+      <aside className="flex h-[46dvh] shrink-0 flex-col border-t border-border bg-surface lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l">
+        <PillTabs tabs={TABS} value={tab} onChange={setTab} label="Alat hias" panel={panelRef} />
+
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3">
           <div ref={panelRef} role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label}>
-            {tab === 'frame' && <FramePanel />}
+            {tab === 'frame' && <FramePicker />}
             {tab === 'filter' && <FilterPanel photo={photos.find(Boolean) ?? null} />}
             {tab === 'stiker' && (
               <StickerPanel
@@ -113,85 +117,6 @@ export function EditPage() {
           </button>
         </div>
       </aside>
-    </div>
-  )
-}
-
-function FramePanel() {
-  const { design, photos, setDesign } = useBooth()
-  const [cat, setCat] = useState<Category | 'Semua' | 'Ilustrasi'>('Semua')
-  const layout = layoutById(design.layoutId)
-  const [side, setSide] = useState<'both' | 'left' | 'right'>(design.templateRightId ? 'left' : 'both')
-  const activeId = side === 'right' ? (design.templateRightId ?? design.templateId) : design.templateId
-  // Template bergambar ditampilkan lebih dulu.
-  const ordered = [...TEMPLATES.filter(isIllustrated), ...TEMPLATES.filter((t) => !isIllustrated(t))]
-  const list = cat === 'Semua' ? ordered : cat === 'Ilustrasi' ? ordered.filter(isIllustrated) : ordered.filter((t) => t.category === cat)
-
-  const pick = (id: string) => {
-    if (side === 'both') setDesign({ templateId: id, templateRightId: null })
-    else if (side === 'left') setDesign({ templateId: id, templateRightId: design.templateRightId ?? design.templateId })
-    else setDesign({ templateRightId: id })
-  }
-
-  const thumbs = useMemo(
-    () =>
-      list.map((t) => {
-        const d = { ...design, overlays: [] }
-        if (layout.regions === 2) {
-          if (side === 'both') Object.assign(d, { templateId: t.id, templateRightId: null })
-          else if (side === 'left') Object.assign(d, { templateId: t.id })
-          else Object.assign(d, { templateRightId: t.id })
-        } else d.templateId = t.id
-        return { t, input: renderInput({ design: d, photos }) }
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cat, side, design.layoutId, design.aspect, design.photoMode, design.filterId, design.format, photos],
-  )
-
-  return (
-    <div className="space-y-3">
-      {layout.regions === 2 && (
-        <div className="flex rounded-full border border-border bg-surface p-0.5 text-sm font-bold">
-          {(
-            [
-              ['both', 'Sama'],
-              ['left', 'Kiri'],
-              ['right', 'Kanan'],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} onClick={() => setSide(id)} aria-pressed={side === id} className={`flex-1 rounded-full px-2 py-1.5 ${side === id ? 'bg-accent text-white' : ''}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3">
-        {(['Semua', ...CATEGORIES] as const).map((c) => (
-          <button
-            key={c}
-            onClick={() => setCat(c)}
-            aria-pressed={cat === c}
-            className={`shrink-0 rounded-full border-2 px-3 py-1 text-xs font-bold ${cat === c ? 'border-accent bg-accent text-white' : 'border-border'}`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-4">
-        {thumbs.map(({ t, input: ti }) => (
-          <button
-            key={t.id}
-            onClick={() => pick(t.id)}
-            aria-pressed={activeId === t.id}
-            className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${activeId === t.id ? 'border-accent bg-accent-subtle' : 'border-transparent hover:border-border'}`}
-          >
-            <div className="flex h-24 items-center">
-              <MiniStrip input={ti} scale={0.06} className="h-full w-auto rounded-[2px] shadow-[0_1px_4px_rgba(0,0,0,0.2)]" />
-            </div>
-            <span className="text-[11px] leading-tight font-semibold">{t.name}</span>
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

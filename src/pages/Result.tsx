@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useStepNav } from '../components/Curtain'
 import { MiniStrip } from '../components/MiniStrip'
+import { PatunganHelp } from '../components/PatunganHelp'
 import { QuotaBar } from '../components/LoginSheet'
 import { SparkleButton } from '../components/SparkleButton'
 import { loginPath, useAuth } from '../lib/api'
@@ -174,6 +175,7 @@ export function ResultPage() {
               ? 'Kirim berkas patungan ke teman supaya dia mengisi frame yang kosong dari HP-nya.'
               : 'Kirim berkas patungan; temanmu bisa membuka, menghias ulang, dan mengunduh strip yang sama.'}
           </p>
+          <PatunganHelp />
           <button className="btn mt-3 w-full text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
             Kirim ke teman
           </button>

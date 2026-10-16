@@ -5,6 +5,7 @@ import { PhotoThumb } from '../components/PhotoThumb'
 import { ASPECTS, layoutById } from '../lib/layouts'
 import { beep, burst, fileToPhoto, openCamera, shutter, snap, stopStream, unlockAudio } from '../lib/media'
 import { sendPatungan } from '../lib/share'
+import { PatunganHelp } from '../components/PatunganHelp'
 import { useAuth } from '../lib/api'
 import { newId, useBooth } from '../store'
 
@@ -129,7 +130,7 @@ export function CapturePage() {
 
   const primaryTargets = selected !== null ? [selected] : empties.length ? empties : photos.map((_, i) => i)
   const primaryLabel =
-    selected !== null ? `Foto ulang frame ${selected + 1}` : empties.length === photos.length ? 'Mulai foto' : empties.length ? `Foto ${empties.length} frame sisa` : 'Ulangi semua'
+    selected !== null ? `${photos[selected] ? 'Foto ulang' : 'Foto'} frame ${selected + 1}` : empties.length === photos.length ? 'Mulai foto' : empties.length ? `Foto ${empties.length} frame sisa` : 'Ulangi semua'
 
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 overflow-y-auto p-4 lg:flex-row lg:items-start lg:p-6">
@@ -211,7 +212,7 @@ export function CapturePage() {
             </h2>
             {patunganFrom !== null && <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-accent-hover text-xs font-bold">patungan</span>}
           </div>
-          <p className="mt-1 text-xs text-muted">Ketuk frame untuk foto ulang atau ganti dengan upload.</p>
+          <p className="mt-1 text-xs text-muted">Ketuk satu frame untuk memotret atau upload frame itu saja (mis. bagianmu saat patungan).</p>
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-3">
             {photos.map((p, i) => (
               <button
@@ -258,7 +259,10 @@ export function CapturePage() {
         {empties.length > 0 && filled > 0 && (
           <div className="rounded-2xl border-2 border-dashed border-border-strong p-4 text-sm">
             <p className="font-bold">Sisanya diisi teman?</p>
-            <p className="mt-1 text-muted">Kirim berkas patungan; temanmu buka di web ini lalu foto {empties.length} frame yang kosong.</p>
+            <p className="mt-1 text-muted">
+              Kirim berkas patungan lewat WhatsApp. Temanmu buka di InWebBooth, lalu foto {empties.length} frame yang kosong dari HP-nya.
+            </p>
+            <PatunganHelp />
             <button className="btn mt-3 w-full text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
               Kirim ke teman
             </button>

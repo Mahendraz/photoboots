@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useStepNav } from '../components/Curtain'
 import { FormatPicker } from '../components/FormatPicker'
 import { FramePicker } from '../components/FramePicker'
+import { PatunganGuide } from '../components/PatunganGuide'
 import { MiniStrip } from '../components/MiniStrip'
 import { ASPECTS, FORMATS, LAYOUTS, layoutById, photoCount, type AspectId } from '../lib/layouts'
 import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
@@ -65,8 +66,8 @@ export function StartPage() {
                   active ? 'border-accent bg-accent-subtle shadow-md' : 'border-border bg-surface hover:border-border-strong'
                 }`}
               >
-                <div className="flex h-28 items-center justify-center sm:h-32">
-                  <MiniStrip input={input} scale={0.07} className="h-full w-auto rounded-sm shadow-[0_2px_6px_rgba(0,0,0,0.15)]" />
+                <div className="flex h-28 w-full items-center justify-center sm:h-32">
+                  <MiniStrip input={input} fit={128} className="max-h-full max-w-full rounded-sm shadow-[0_2px_6px_rgba(0,0,0,0.15)]" />
                 </div>
                 <span className="text-sm leading-tight font-bold">{l.name}</span>
                 <span className="text-xs leading-tight text-muted">{l.desc}</span>
@@ -130,15 +131,20 @@ export function StartPage() {
           <FramePicker bleed="-mx-4 px-4 sm:-mx-6 sm:px-6" grid="grid-cols-4 sm:grid-cols-6 lg:grid-cols-8" />
         </section>
 
-        <section className="mt-8 rounded-2xl border-2 border-dashed border-border-strong p-4">
-          <h2 className="font-heading text-lg font-bold">Foto bareng teman dari jauh?</h2>
-          <p className="mt-1 text-sm text-muted">
-            Satu orang foto dulu sebagian frame, lalu kirim <b>berkas patungan</b> lewat WhatsApp. Temannya buka berkas itu di sini dan
-            mengisi frame sisanya. Tanpa server, fotonya cuma lewat chat kalian.
+        <section className="mt-8 rounded-2xl border border-border bg-bg-subtle p-4 sm:p-5">
+          <h2 className="font-heading text-lg font-bold">Foto bareng teman dari jauh</h2>
+          <p className="mt-1 mb-3 text-sm text-muted">
+            Beda kota tetap bisa satu strip. Tiap orang mengisi frame bagiannya dari HP masing-masing, berkasnya dioper lewat chat.
           </p>
-          <button className="btn mt-3 text-sm" onClick={() => fileRef.current?.click()}>
-            Buka berkas dari teman
-          </button>
+          <PatunganGuide />
+          <div className="mt-4 flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm">
+              <b>Dapat berkas patungan dari teman?</b> <span className="text-muted">Buka di sini, lalu isi frame yang masih kosong.</span>
+            </p>
+            <button className="btn btn-primary shrink-0 text-sm" onClick={() => fileRef.current?.click()}>
+              Buka berkas dari teman
+            </button>
+          </div>
           <input
             ref={fileRef}
             type="file"

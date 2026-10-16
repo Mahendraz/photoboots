@@ -83,8 +83,8 @@ export function FramePicker({
             aria-pressed={activeId === t.id}
             className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${activeId === t.id ? 'border-accent bg-accent-subtle' : 'border-transparent hover:border-border'}`}
           >
-            <div className="flex h-24 items-center">
-              <MiniStrip input={ti} scale={0.06} className="h-full w-auto rounded-[2px] shadow-[0_1px_4px_rgba(0,0,0,0.2)]" />
+            <div className="flex h-24 w-full items-center justify-center">
+              <MiniStrip input={ti} fit={96} className="max-h-full max-w-full rounded-[2px] shadow-[0_1px_4px_rgba(0,0,0,0.2)]" />
             </div>
             <span className="text-[11px] leading-tight font-semibold">{t.name}</span>
           </button>

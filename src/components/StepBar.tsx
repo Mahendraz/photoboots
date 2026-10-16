@@ -101,7 +101,8 @@ export function StepBar({ step }: { step: number }) {
                   />
                 </svg>
               </span>
-              <span className={i === step ? '' : 'max-sm:hidden'}>{s.label}</span>
+              {/* Di HP sempit (< 360px) label langkah aktif ikut disembunyikan supaya tombol akun tidak terdorong keluar layar. */}
+              <span className={i === step ? 'max-[359px]:sr-only' : 'max-sm:hidden'}>{s.label}</span>
               {i < step && <span className="sr-only">(selesai)</span>}
             </span>
           </span>

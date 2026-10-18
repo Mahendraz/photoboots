@@ -1,9 +1,9 @@
 import { useState } from 'react'
 
 /**
- * Panduan visual "foto bareng dari jauh" (patungan): pilih contoh (LDR, geng beda kota, keluarga), lalu empat
- * langkah bergambar yang menunjukkan frame mana diisi siapa. Diagram strip digambar dengan HTML (bukan foto),
- * warnanya satu per orang dari token design system.
+ * Panduan visual "foto bareng dari jauh" lewat link ruang: pilih contoh (LDR, geng beda kota, keluarga), lalu
+ * empat langkah bergambar yang menunjukkan frame mana diisi siapa. Diagram strip digambar dengan HTML (bukan foto),
+ * warnanya satu per orang dari token design system. Berkas patungan disebut sebagai cadangan di catatan bawah.
  */
 
 interface Person {
@@ -50,8 +50,8 @@ const SCENARIOS: Scenario[] = [
     rows: 3,
     people: [KAMU, { name: 'Bestie 1', tone: P2 }, { name: 'Bestie 2', tone: P3 }],
     owners: [0, 0, 1, 1, 2, 2],
-    where: 'Bertiga, kota beda-beda. Berkasnya dikirim berantai.',
-    result: 'Tiap orang dua frame. Yang terakhir mengisi kirim balik ke grup supaya semua punya.',
+    where: 'Bertiga, kota beda-beda. Satu link dikirim ke grup.',
+    result: 'Tiap orang dua frame, dan semua bisa unduh strip yang sama dari HP masing-masing.',
   },
   {
     id: 'keluarga',
@@ -100,13 +100,13 @@ function Strip({ s, show, highlight }: { s: Scenario; show: (i: number) => boole
   )
 }
 
-function FileChip() {
+function LinkChip() {
   return (
     <div className="flex w-16 shrink-0 flex-col items-center gap-1" aria-hidden>
       <span className="relative grid h-14 w-12 place-items-center rounded-md border border-border bg-surface shadow-sm">
-        <svg viewBox="0 0 24 24" className="size-6 text-accent" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-          <path d="M14 3v5h5M9 13h6M9 17h4" />
+        <svg viewBox="0 0 24 24" className="size-6 text-accent" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+          <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
         </svg>
         <span className="absolute -right-2 -bottom-2 grid size-6 place-items-center rounded-full bg-accent text-white shadow-sm">
           <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +114,7 @@ function FileChip() {
           </svg>
         </span>
       </span>
-      <span className="text-[10px] font-semibold text-muted">.txt</span>
+      <span className="text-[10px] font-semibold text-muted">link</span>
     </div>
   )
 }
@@ -125,37 +125,35 @@ export function PatunganGuide({ stepsClass = 'sm:grid-cols-2 lg:grid-cols-4' }: 
   const s = SCENARIOS.find((x) => x.id === id)!
   const others = s.people.slice(1).map((p) => p.name)
   const yours = s.owners.flatMap((o, i) => (o === 0 ? [i + 1] : []))
-  const chain = s.people.length > 2
+  const many = s.people.length > 2
+  const theirs = s.owners.flatMap((o, i) => (o === 1 ? [i + 1] : []))
 
   const steps = [
     {
+      visual: <LinkChip />,
+      title: 'Bikin link ruang',
+      body: (
+        <>
+          Pilih layout <b>{s.layout}</b>, tekan <b>Ajak lewat link</b>, lalu kirim ke {many ? 'grup' : others[0]} lewat WhatsApp.
+        </>
+      ),
+    },
+    {
       visual: <Strip s={s} show={(i) => s.owners[i] === 0} highlight={(i) => s.owners[i] === 0} />,
-      title: 'Kamu isi bagianmu dulu',
+      title: 'Kamu foto bagianmu',
       body: (
         <>
-          Pilih layout <b>{s.layout}</b>, lalu di langkah Foto ketuk frame {yours.join(' & ')} satu per satu dan foto. Frame lain biarkan kosong.
+          Di langkah Foto, ketuk frame {yours.join(' & ')} lalu foto. Biarkan halamannya tetap terbuka.
         </>
       ),
     },
     {
-      visual: <FileChip />,
-      title: 'Kirim berkas patungan',
+      visual: <Strip s={s} show={(i) => s.owners[i] <= (many ? s.people.length - 1 : 1)} highlight={(i) => s.owners[i] !== 0} />,
+      title: many ? `${others.join(', ')} ikut masuk` : `${others[0]} klik link & ikut foto`,
       body: (
         <>
-          Tekan <b>Kirim ke teman</b>, pilih WhatsApp, kirim ke {others[0]}. Isinya foto + desain strip, tanpa lewat server kami.
-        </>
-      ),
-    },
-    {
-      visual: <Strip s={s} show={(i) => s.owners[i] <= 1} highlight={(i) => s.owners[i] === 1} />,
-      title: `${others[0]} buka & isi sisanya`,
-      body: chain ? (
-        <>
-          Di InWebBooth: <b>Buka berkas dari teman</b>, foto frame bagiannya, lalu kirim lagi ke {others.slice(1).join(', lalu ')}.
-        </>
-      ) : (
-        <>
-          Di InWebBooth: <b>Buka berkas dari teman</b> (di halaman awal), lalu foto frame yang masih kosong.
+          Tanpa install, tanpa daftar. {many ? 'Tiap orang' : others[0]} ketuk frame {many ? 'bagiannya' : theirs.join(' & ')} dan foto, hasilnya langsung muncul di HP
+          semua orang.
         </>
       ),
     },
@@ -210,6 +208,10 @@ export function PatunganGuide({ stepsClass = 'sm:grid-cols-2 lg:grid-cols-4' }: 
           </li>
         ))}
       </ol>
+      <p className="mt-3 text-xs text-muted">
+        Foto dikirim langsung antar-HP, tidak disimpan di server kami. Nggak bisa online barengan, atau link-nya nggak nyambung? Pakai{' '}
+        <b>berkas patungan</b>: isi bagianmu, tekan <b>Kirim berkas patungan</b>, temanmu buka berkas itu di InWebBooth lalu isi sisanya.
+      </p>
     </div>
   )
 }

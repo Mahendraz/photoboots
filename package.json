@@ -19,6 +19,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0",
+    "trystero": "0.25.4",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

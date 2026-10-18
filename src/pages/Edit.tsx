@@ -11,6 +11,7 @@ import { applyFilter, FILTERS } from '../lib/filters'
 import { ASPECTS, layoutById, type AspectId } from '../lib/layouts'
 import type { Photo } from '../lib/render'
 import { FONTS, templateById } from '../lib/templates'
+import { useRoom } from '../lib/room'
 import { renderInput, useBooth } from '../store'
 
 type Tab = 'frame' | 'filter' | 'stiker' | 'teks' | 'atur'
@@ -217,6 +218,7 @@ function TextPanel({
 function ArrangePanel() {
   const stepTo = useStepNav()
   const { design, photos, setDesign } = useBooth()
+  const locked = useRoom((s) => s.code !== null)
   const layout = layoutById(design.layoutId)
   return (
     <div className="space-y-4 text-sm">
@@ -253,7 +255,9 @@ function ArrangePanel() {
                 key={id}
                 onClick={() => setDesign({ photoMode: id })}
                 aria-pressed={design.photoMode === id}
-                className={`flex-1 rounded-full border-2 px-3 py-1.5 font-semibold ${design.photoMode === id ? 'border-accent bg-accent text-white' : 'border-border'}`}
+                disabled={locked && design.photoMode !== id}
+                title={locked ? 'Dikunci selama foto bareng' : undefined}
+                className={`flex-1 rounded-full border-2 px-3 py-1.5 font-semibold disabled:opacity-40 ${design.photoMode === id ? 'border-accent bg-accent text-white' : 'border-border'}`}
               >
                 {label}
               </button>

@@ -12,7 +12,13 @@ Tampilan app mengikuti design system InWebsite (lihat `docs/design.md`); logo In
 - **Hias**: 58 template frame — 23 dengan latar ilustrasi (generate Codex, `public/frames/`), sisanya digambar kode —
   14 filter, 514 stiker sprinkle InWebAsset + emoji, teks footer, tanggal, teks bebas. Stiker bisa digeser, dicubit dua jari,
   diputar, dan diatur urutan depan/belakang.
-- **Patungan**: foto bareng teman dari jauh tanpa server. Satu orang mengisi sebagian frame lalu mengirim berkas patungan (.txt berisi JSON) lewat WhatsApp; temannya membuka berkas itu di web ini dan mengisi sisanya.
+- **Foto bareng lewat link** (`src/lib/room.ts`): pembuat ruang mengirim link `/app/bareng#<kode>`; sampai 10 orang
+  (maksimal sebanyak frame) masuk tanpa install/daftar, memesan frame, dan foto dari HP masing-masing. Foto dikirim langsung
+  antar-browser lewat WebRTC (Trystero 0.25.4); perkenalan lewat relay Nostr publik, STUN publik Google/Cloudflare, tanpa TURN.
+  Pembuat ruang memegang keadaan ruang dan meneruskan foto ke yang lain, jadi tiap orang cukup tersambung ke dia. Ruang hidup
+  selama tab pembuatnya terbuka (layar dijaga tetap menyala); layout dikunci selama di ruang.
+- **Patungan** (cadangan kalau tidak bisa online barengan / link tidak nyambung): satu orang mengisi sebagian frame lalu
+  mengirim berkas patungan (.txt berisi JSON) lewat WhatsApp; temannya membuka berkas itu di web ini dan mengisi sisanya.
 - **Kuota**: login (Google atau email + kata sandi lewat Auth0), gratis 5 strip/hari tanpa watermark (reset 00.00 WIB). Setelah itu tetap bisa unduh, tapi diberi watermark.
 
 ## Hemat biaya
@@ -28,6 +34,7 @@ yang tidak dihitung request Worker.
 | Login (Google: 2 request, email: 1) | 1–2 | 1 tulis + 1 baca |
 | Unduh strip baru | 1 | 3–4 baca + 1 tulis |
 | Unduh ulang / ganti format strip yang sama | 1 | 1–2 baca |
+| Foto bareng lewat link / berkas patungan | 0 | 0 |
 
 Stiker dimuat dari CDN InWebAsset.
 

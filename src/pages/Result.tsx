@@ -2,12 +2,12 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useStepNav } from '../components/Curtain'
 import { MiniStrip } from '../components/MiniStrip'
-import { PatunganHelp } from '../components/PatunganHelp'
+import { RoomCard } from '../components/Room'
 import { QuotaBar } from '../components/LoginSheet'
 import { SparkleButton } from '../components/SparkleButton'
 import { loginPath, useAuth } from '../lib/api'
 import { downloadBlob, fileName, hasLive, renderBlob, renderGif, type Format } from '../lib/export'
-import { sendPatungan } from '../lib/share'
+import { leaveRoom } from '../lib/room'
 import { useGooeyPill } from '../lib/gooey'
 import { FORMAT_IDS, FORMATS, type FormatId } from '../lib/layouts'
 import { renderInput, useBooth } from '../store'
@@ -168,18 +168,7 @@ export function ResultPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border-2 border-dashed border-border-strong p-4 text-sm">
-          <p className="font-bold">{empty ? `Masih ada ${empty} frame kosong` : 'Mau temanmu ikut punya?'}</p>
-          <p className="mt-1 text-muted">
-            {empty
-              ? 'Kirim berkas patungan ke teman supaya dia mengisi frame yang kosong dari HP-nya.'
-              : 'Kirim berkas patungan; temanmu bisa membuka, menghias ulang, dan mengunduh strip yang sama.'}
-          </p>
-          <PatunganHelp />
-          <button className="btn mt-3 w-full text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
-            Kirim ke teman
-          </button>
-        </div>
+        <RoomCard empty={empty} />
 
         <div className="rounded-2xl border border-border bg-bg-subtle p-4 text-sm">
           <p className="font-bold">Segera: simpan & bagikan lewat link/QR</p>
@@ -192,7 +181,7 @@ export function ResultPage() {
           </button>
           <button
             className="btn flex-1 text-sm"
-            onClick={(e) => stepTo('/app/foto', e, resetPhotos)}
+            onClick={(e) => stepTo('/app/foto', e, () => (void leaveRoom(), resetPhotos()))}
           >
             Foto lagi
           </button>

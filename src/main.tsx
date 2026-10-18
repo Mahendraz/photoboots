@@ -19,6 +19,8 @@ const router = createBrowserRouter([
       { path: 'masuk', lazy: () => import('./pages/Login').then((m) => ({ Component: m.LoginPage })) },
       { path: 'hias', lazy: () => import('./pages/Edit').then((m) => ({ Component: m.EditPage })) },
       { path: 'unduh', lazy: () => import('./pages/Result').then((m) => ({ Component: m.ResultPage })) },
+      // Tujuan link "foto bareng" (/app/bareng#kode).
+      { path: 'bareng', lazy: () => import('./pages/Join').then((m) => ({ Component: m.JoinPage })) },
     ],
   },
   { path: '*', element: <Navigate to="/app" replace /> },

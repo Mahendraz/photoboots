@@ -6,6 +6,8 @@ import { PatunganGuide } from '../components/PatunganGuide'
 import { MiniStrip } from '../components/MiniStrip'
 import { ASPECTS, FORMATS, LAYOUTS, layoutById, photoCount, type AspectId } from '../lib/layouts'
 import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
+import { leaveRoom, useRoom } from '../lib/room'
+import { LinkIcon, openInvite } from '../components/Room'
 import { renderInput, useBooth } from '../store'
 
 export function StartPage() {
@@ -16,6 +18,10 @@ export function StartPage() {
   const loadPatungan = useBooth((s) => s.loadPatungan)
   const fileRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [opening, setOpening] = useState(false)
+  // Di ruang foto bareng, jumlah frame dikunci supaya frame semua orang sama.
+  const locked = useRoom((s) => s.code !== null)
+  const roomSize = useRoom((s) => s.members.filter((m) => m.online).length)
   const layout = layoutById(design.layoutId)
   const count = photoCount(layout, design.photoMode)
 
@@ -36,6 +42,7 @@ export function StartPage() {
     setError(null)
     try {
       const p = await readPatungan(file)
+      await leaveRoom()
       loadPatungan(p.design, p.photos, p.from)
       stepTo('/app/foto')
     } catch (e) {
@@ -48,6 +55,18 @@ export function StartPage() {
       <div className="mx-auto max-w-5xl px-4 pt-6 pb-32 sm:px-6">
         <h1 className="font-heading text-3xl font-bold sm:text-4xl">Mau strip yang mana?</h1>
         <p className="mt-1 text-muted">Pilih jumlah frame dan template-nya. Stiker, filter, dan teks ditambah di langkah Hias.</p>
+
+        {locked && (
+          <div className="mt-4 flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent-subtle p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              <b>Kamu lagi di ruang foto bareng ({roomSize} orang).</b>{' '}
+              <span className="text-muted">Layout dikunci supaya frame semua orang sama. Template tetap bisa diganti.</span>
+            </p>
+            <button className="btn shrink-0 text-sm" onClick={() => void leaveRoom()}>
+              Keluar ruang
+            </button>
+          </div>
+        )}
 
         <section className="mt-5">
           <h2 className="mb-2 font-heading text-lg font-bold">Mau dipakai buat apa?</h2>
@@ -62,7 +81,8 @@ export function StartPage() {
                 key={l.id}
                 onClick={() => setLayout(l.id)}
                 aria-pressed={active}
-                className={`group flex flex-col items-center gap-2 rounded-2xl border-2 p-2.5 text-center transition ${
+                disabled={locked && !active}
+                className={`group flex flex-col items-center gap-2 rounded-2xl border-2 p-2.5 text-center transition disabled:opacity-40 ${
                   active ? 'border-accent bg-accent-subtle shadow-md' : 'border-border bg-surface hover:border-border-strong'
                 }`}
               >
@@ -113,7 +133,8 @@ export function StartPage() {
                     key={id}
                     onClick={() => setDesign({ photoMode: id })}
                     aria-pressed={design.photoMode === id}
-                    className={`rounded-2xl border-2 p-3 text-left ${design.photoMode === id ? 'border-accent bg-accent-subtle' : 'border-border bg-surface hover:border-border-strong'}`}
+                    disabled={locked && design.photoMode !== id}
+                    className={`rounded-2xl border-2 p-3 text-left disabled:opacity-40 ${design.photoMode === id ? 'border-accent bg-accent-subtle' : 'border-border bg-surface hover:border-border-strong'}`}
                   >
                     <span className="block font-bold">{name}</span>
                     <span className="mt-0.5 block text-xs text-muted">{desc}</span>
@@ -134,14 +155,32 @@ export function StartPage() {
         <section className="mt-8 rounded-2xl border border-border bg-bg-subtle p-4 sm:p-5">
           <h2 className="font-heading text-lg font-bold">Foto bareng teman dari jauh</h2>
           <p className="mt-1 mb-3 text-sm text-muted">
-            Beda kota tetap bisa satu strip. Tiap orang mengisi frame bagiannya dari HP masing-masing, berkasnya dioper lewat chat.
+            Beda kota tetap bisa satu strip. Kirim link ke teman, semua foto dari HP masing-masing di waktu yang sama, dan tiap foto langsung muncul di HP
+            semua orang.
           </p>
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-accent/30 bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm">
+              <b>Pilih layout di atas, lalu bikin link ruangnya.</b> <span className="text-muted">Temanmu cukup klik, tanpa install dan tanpa daftar.</span>
+            </p>
+            <button
+              className="btn btn-primary shrink-0 text-sm"
+              disabled={opening}
+              onClick={async (e) => {
+                const at = { clientX: e.clientX }
+                setOpening(true)
+                await openInvite().finally(() => setOpening(false))
+                stepTo('/app/foto', at)
+              }}
+            >
+              <LinkIcon /> {opening ? 'Menyiapkan…' : locked ? 'Ajak teman lagi' : 'Ajak lewat link'}
+            </button>
+          </div>
           <PatunganGuide />
           <div className="mt-4 flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm">
-              <b>Dapat berkas patungan dari teman?</b> <span className="text-muted">Buka di sini, lalu isi frame yang masih kosong.</span>
+              <b>Nggak bisa online barengan?</b> <span className="text-muted">Pakai berkas patungan: dapat berkas dari teman, buka di sini lalu isi frame yang kosong.</span>
             </p>
-            <button className="btn btn-primary shrink-0 text-sm" onClick={() => fileRef.current?.click()}>
+            <button className="btn shrink-0 text-sm" onClick={() => fileRef.current?.click()}>
               Buka berkas dari teman
             </button>
           </div>

@@ -4,9 +4,8 @@ import { useStepNav } from '../components/Curtain'
 import { PhotoThumb } from '../components/PhotoThumb'
 import { ASPECTS, layoutById } from '../lib/layouts'
 import { beep, burst, fileToPhoto, openCamera, shutter, snap, stopStream, unlockAudio } from '../lib/media'
-import { sendPatungan } from '../lib/share'
-import { PatunganHelp } from '../components/PatunganHelp'
-import { useAuth } from '../lib/api'
+import { RoomCard } from '../components/Room'
+import { claimSlots, displayName, memberColor, useRoom } from '../lib/room'
 import { newId, useBooth } from '../store'
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -14,7 +13,8 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export function CapturePage() {
   const stepTo = useStepNav()
   const { design, settings, photos, setPhoto, setSettings, patunganFrom } = useBooth()
-  const user = useAuth((s) => s.user)
+  const room = useRoom()
+  const live = room.code !== null
   const layout = layoutById(design.layoutId)
   const ratio = ASPECTS[design.aspect].ratio
 
@@ -34,7 +34,19 @@ export function CapturePage() {
   const [note, setNote] = useState<string | null>(null)
 
   const filled = photos.filter(Boolean).length
-  const empties = photos.map((p, i) => (p ? -1 : i)).filter((i) => i >= 0)
+  // Di ruang foto bareng: frame yang dipesan/diisi orang lain bukan bagianmu.
+  const ownerOf = (i: number) => (live ? (room.owners[i] ?? null) : null)
+  const memberOf = (id: string | null) => room.members.find((m) => m.id === id)
+  const takenByOther = (i: number) => {
+    const o = ownerOf(i)
+    return o !== null && o !== room.selfId
+  }
+  const empties = photos.map((p, i) => (p || takenByOther(i) ? -1 : i)).filter((i) => i >= 0)
+  const mineEmpty = empties.filter((i) => ownerOf(i) === room.selfId)
+  const mineFilled = photos.map((p, i) => (p && ownerOf(i) === room.selfId ? i : -1)).filter((i) => i >= 0)
+  // Bagian wajar per orang (minimal anggap berdua), supaya satu orang tidak menghabiskan semua frame.
+  const share = Math.ceil(photos.length / Math.max(2, room.members.filter((m) => m.online).length))
+  const liveTargets = mineEmpty.length ? mineEmpty : empties.slice(0, Math.max(1, share - mineFilled.length))
 
   // Kamera
   useEffect(() => {
@@ -81,8 +93,12 @@ export function CapturePage() {
       if (!v || !camReady || !targets.length) return
       unlockAudio()
       cancelRef.current = false
-      setRunning(true)
       setNote(null)
+      const granted = await claimSlots(targets)
+      if (!granted.length) return setNote('Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
+      if (granted.length < targets.length) setNote(`${targets.length - granted.length} frame sudah diambil teman, jadi dilewati.`)
+      targets = granted
+      setRunning(true)
       try {
         for (let n = 0; n < targets.length; n++) {
           for (let c = settings.countdown; c > 0; c--) {
@@ -112,11 +128,13 @@ export function CapturePage() {
   async function onFiles(files: FileList) {
     const list = [...files].filter((f) => f.type.startsWith('image/'))
     if (!list.length) return
-    const targets = selected !== null ? [selected] : empties
-    if (!targets.length) {
+    const wanted = selected !== null ? [selected] : empties
+    if (!wanted.length) {
       setNote('Semua frame sudah terisi. Ketuk satu frame dulu untuk menggantinya.')
       return
     }
+    const targets = await claimSlots(wanted.slice(0, list.length))
+    if (!targets.length) return setNote('Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
     for (let i = 0; i < Math.min(list.length, targets.length); i++) {
       try {
         setPhoto(targets[i], await fileToPhoto(list[i]))
@@ -128,9 +146,24 @@ export function CapturePage() {
     setSelected(null)
   }
 
-  const primaryTargets = selected !== null ? [selected] : empties.length ? empties : photos.map((_, i) => i)
+  const primaryTargets =
+    selected !== null ? [selected] : live ? (liveTargets.length ? liveTargets : mineFilled) : empties.length ? empties : photos.map((_, i) => i)
   const primaryLabel =
-    selected !== null ? `${photos[selected] ? 'Foto ulang' : 'Foto'} frame ${selected + 1}` : empties.length === photos.length ? 'Mulai foto' : empties.length ? `Foto ${empties.length} frame sisa` : 'Ulangi semua'
+    selected !== null
+      ? `${photos[selected] ? 'Foto ulang' : 'Foto'} frame ${selected + 1}`
+      : live
+        ? liveTargets.length
+          ? liveTargets.length === 1
+            ? `Foto frame ${liveTargets[0] + 1}`
+            : `Foto ${liveTargets.length} frame-mu`
+          : mineFilled.length
+            ? 'Ulangi fotoku'
+            : 'Frame sudah penuh'
+        : empties.length === photos.length
+          ? 'Mulai foto'
+          : empties.length
+            ? `Foto ${empties.length} frame sisa`
+            : 'Ulangi semua'
 
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 overflow-y-auto p-4 lg:flex-row lg:items-start lg:p-6">
@@ -176,7 +209,7 @@ export function CapturePage() {
               Berhenti
             </button>
           ) : (
-            <button className="btn btn-primary min-w-44 text-lg" onClick={() => shoot(primaryTargets)} disabled={!camReady}>
+            <button className="btn btn-primary min-w-44 text-lg" onClick={() => shoot(primaryTargets)} disabled={!camReady || !primaryTargets.length}>
               {primaryLabel}
             </button>
           )}
@@ -210,31 +243,57 @@ export function CapturePage() {
             <h2 className="font-heading text-lg font-bold">
               Frame {filled}/{photos.length}
             </h2>
-            {patunganFrom !== null && <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-accent-hover text-xs font-bold">patungan</span>}
+            {live ? (
+              <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-bold text-accent-hover">bareng</span>
+            ) : (
+              patunganFrom !== null && <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-bold text-accent-hover">patungan</span>
+            )}
           </div>
-          <p className="mt-1 text-xs text-muted">Ketuk satu frame untuk memotret atau upload frame itu saja (mis. bagianmu saat patungan).</p>
+          <p className="mt-1 text-xs text-muted">
+            {live
+              ? 'Ketuk frame kosong untuk memilih bagianmu. Warna di frame menunjukkan punya siapa.'
+              : 'Ketuk satu frame untuk memotret atau upload frame itu saja (mis. bagianmu saat patungan).'}
+          </p>
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-3">
-            {photos.map((p, i) => (
-              <button
-                key={i}
-                onClick={() => setSelected(selected === i ? null : i)}
-                disabled={running}
-                aria-pressed={selected === i}
-                aria-label={`Frame ${i + 1}${p ? '' : ' (kosong)'}`}
-                className={`relative w-20 shrink-0 overflow-hidden rounded-xl border-2 lg:w-auto ${selected === i ? 'border-accent ring-2 ring-accent' : 'border-border'}`}
-                style={{ aspectRatio: ratio }}
-              >
-                {p ? (
-                  <PhotoThumb photo={p} aspect={ratio} className="size-full" />
-                ) : (
-                  <span className="grid size-full place-items-center bg-bg-subtle font-heading text-xl font-bold text-muted">{i + 1}</span>
-                )}
-                {p?.source === 'friend' && <span className="absolute right-1 bottom-1 rounded bg-accent-subtle px-1 text-[10px] text-accent-hover font-bold">teman</span>}
-                {p?.burst && <span className="absolute top-1 right-1 rounded bg-inverse/70 px-1 text-[10px] font-bold text-white">live</span>}
-              </button>
-            ))}
+            {photos.map((p, i) => {
+              const owner = live ? memberOf(ownerOf(i)) : undefined
+              const color = owner ? memberColor(owner) : undefined
+              const progress = room.transfer[i]
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    if (takenByOther(i)) return setNote(`Frame ${i + 1} punya ${displayName(owner)}.`)
+                    setNote(null)
+                    setSelected(selected === i ? null : i)
+                  }}
+                  disabled={running}
+                  aria-pressed={selected === i}
+                  aria-label={`Frame ${i + 1}${p ? '' : ' (kosong)'}${owner ? `, punya ${displayName(owner, room.selfId)}` : ''}`}
+                  className={`relative w-20 shrink-0 overflow-hidden rounded-xl border-2 lg:w-auto ${selected === i ? 'border-accent ring-2 ring-accent' : owner ? '' : 'border-border'}`}
+                  style={{ aspectRatio: ratio, borderColor: selected === i ? undefined : color }}
+                >
+                  {p ? (
+                    <PhotoThumb photo={p} aspect={ratio} className="size-full" />
+                  ) : (
+                    <span className="grid size-full place-items-center bg-bg-subtle font-heading text-xl font-bold text-muted">{i + 1}</span>
+                  )}
+                  {owner ? (
+                    <span className="absolute bottom-1 left-1 max-w-[85%] truncate rounded px-1 text-[10px] font-bold text-white" style={{ background: color }}>
+                      {displayName(owner, room.selfId)}
+                    </span>
+                  ) : (
+                    p?.source === 'friend' && <span className="absolute right-1 bottom-1 rounded bg-accent-subtle px-1 text-[10px] font-bold text-accent-hover">teman</span>
+                  )}
+                  {p?.burst && <span className="absolute top-1 right-1 rounded bg-inverse/70 px-1 text-[10px] font-bold text-white">live</span>}
+                  {progress !== undefined && (
+                    <span className="absolute inset-0 grid place-items-center bg-inverse/50 text-xs font-bold text-white">{Math.round(progress * 100)}%</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
-          {selected !== null && photos[selected] && (
+          {selected !== null && photos[selected] && (!takenByOther(selected) || room.role === 'host') && (
             <button className="mt-2 text-sm font-semibold text-danger underline" onClick={() => (setPhoto(selected, null), setSelected(null))}>
               Kosongkan frame {selected + 1}
             </button>
@@ -256,18 +315,7 @@ export function CapturePage() {
           )}
         </div>
 
-        {empties.length > 0 && filled > 0 && (
-          <div className="rounded-2xl border-2 border-dashed border-border-strong p-4 text-sm">
-            <p className="font-bold">Sisanya diisi teman?</p>
-            <p className="mt-1 text-muted">
-              Kirim berkas patungan lewat WhatsApp. Temanmu buka di InWebBooth, lalu foto {empties.length} frame yang kosong dari HP-nya.
-            </p>
-            <PatunganHelp />
-            <button className="btn mt-3 w-full text-sm" onClick={() => void sendPatungan(design, photos, user?.name ?? null)}>
-              Kirim ke teman
-            </button>
-          </div>
-        )}
+        <RoomCard empty={photos.length - filled} />
 
         <button className="btn btn-primary" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
           Lanjut hias →{empties.length > 0 && filled > 0 && <span className="text-xs font-normal opacity-70">({empties.length} kosong)</span>}

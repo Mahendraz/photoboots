@@ -5,6 +5,7 @@ import { restoreSession } from '../lib/stash'
 import { useUi } from '../ui'
 import { Curtain, useStepNav } from './Curtain'
 import { AccountSheet } from './LoginSheet'
+import { InviteSheet } from './Room'
 import { Logo } from './Logo'
 import { STEPS, StepBar } from './StepBar'
 
@@ -72,6 +73,7 @@ export function AppShell() {
         <Curtain />
       </main>
       <AccountSheet />
+      <InviteSheet />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { composeOverlays, overlayBox, preloadAll, renderStrip, waitFonts, type Overlay, type RenderInput } from '../lib/render'
+import { composeOverlays, isImageReady, overlayBox, preloadAll, renderStrip, waitFonts, type Overlay, type RenderInput } from '../lib/render'
 import { FONTS } from '../lib/templates'
 
 interface Props {
@@ -88,7 +88,13 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
       if (alive && baseRef.current && canvasRef.current) composeOverlays(canvasRef.current, baseRef.current, { ...baseInput, overlays }, scale)
     }
     const id = requestAnimationFrame(compose)
-    preloadAll({ ...baseInput, overlays }, scale).then(compose)
+    // Stiker yang baru ditekan belum punya ukuran asli; setelah termuat, render ulang supaya kotak
+    // seleksinya ikut proporsi gambar. Hanya kalau memang baru termuat, supaya tidak berputar terus.
+    const waiting = overlays.filter((o) => o.kind === 'image' && o.src && !isImageReady(o.src))
+    preloadAll({ ...baseInput, overlays }, scale).then(() => {
+      compose()
+      if (alive && waiting.some((o) => isImageReady(o.src!))) setTick((t) => t + 1)
+    })
     return () => {
       alive = false
       cancelAnimationFrame(id)

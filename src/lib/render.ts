@@ -56,22 +56,47 @@ export interface RenderOptions {
 const images = new Map<string, HTMLImageElement>()
 const pending = new Map<string, Promise<HTMLImageElement | null>>()
 
+/**
+ * URL gambar lintas-origin untuk dimuat dengan CORS (kanvas butuh CORS supaya bisa diekspor).
+ *
+ * CDN sprinkle hanya mengirim Access-Control-Allow-Origin kalau request membawa header Origin, tanpa
+ * `Vary: Origin`. Begitu URL yang sama pernah dimuat lewat <img> biasa (tanpa crossorigin, mis. thumbnail
+ * stiker), browser menyimpan respons tanpa header CORS (cache 1 tahun, immutable) lalu memakainya lagi
+ * untuk request CORS dari kanvas, sehingga gagal. Query `cors` memberi kunci cache tersendiri yang
+ * hanya dimuat dengan crossorigin, jadi tidak pernah tercemar respons non-CORS.
+ */
+export function corsSrc(src: string, attempt = 1) {
+  const u = new URL(src, location.href)
+  if (u.origin === location.origin) return src
+  u.searchParams.set('cors', String(attempt))
+  return u.href
+}
+
+const fetchImage = (src: string) =>
+  new Promise<HTMLImageElement | null>((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.decoding = 'async'
+    img.onload = () => resolve(img)
+    img.onerror = () => resolve(null)
+    img.src = src
+  })
+
+export const isImageReady = (src: string) => images.has(src)
+
 export function loadImage(src: string): Promise<HTMLImageElement | null> {
   const ready = images.get(src)
   if (ready) return Promise.resolve(ready)
   let p = pending.get(src)
   if (!p) {
-    p = new Promise((resolve) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.decoding = 'async'
-      img.onload = () => {
-        images.set(src, img)
-        resolve(img)
-      }
-      img.onerror = () => resolve(null)
-      img.src = src
-    })
+    p = (async () => {
+      // Coba kedua dengan kunci cache baru, kalau entri pertama sudah tercemar dari versi lama aplikasi.
+      const img = (await fetchImage(corsSrc(src))) ?? (src === corsSrc(src) ? null : await fetchImage(corsSrc(src, Date.now())))
+      if (img) images.set(src, img)
+      // Gagal (mis. sinyal putus) tidak disimpan, supaya pemanggilan berikutnya mencoba lagi.
+      else pending.delete(src)
+      return img
+    })()
     pending.set(src, p)
   }
   return p

@@ -9,7 +9,7 @@ import { Toggle } from './Capture'
 import { STICKER_PACKS } from '../data/stickers'
 import { applyFilter, FILTERS } from '../lib/filters'
 import { ASPECTS, layoutById, type AspectId } from '../lib/layouts'
-import type { Photo } from '../lib/render'
+import { corsSrc, type Photo } from '../lib/render'
 import { FONTS, templateById } from '../lib/templates'
 import { useRoom } from '../lib/room'
 import { renderInput, useBooth } from '../store'
@@ -320,7 +320,9 @@ function StickerPanel({ onEmoji, onImage }: { onEmoji: (e: string) => void; onIm
       <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-6 lg:grid-cols-5">
         {current.items.map((s) => (
           <button key={s.id} onClick={() => onImage(s.url)} className="aspect-square rounded-xl p-1 hover:bg-bg-subtle" title={s.label} aria-label={`Tambah stiker ${s.label}`}>
-            <img src={s.url} alt="" loading="lazy" className="size-full object-contain" />
+            {/* Muat lewat URL & mode CORS yang sama dengan kanvas: tanpa crossorigin, respons non-CORS yang
+                tersimpan di cache membuat stiker gagal muncul di strip saat ditekan. */}
+            <img src={corsSrc(s.url)} crossOrigin="anonymous" alt="" loading="lazy" className="size-full object-contain" />
           </button>
         ))}
       </div>

@@ -52,8 +52,10 @@ export function EditPage() {
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="relative min-h-0 flex-1 bg-bg-subtle lg:p-4">
+      {/* min-w-0: lebar kolom ini tidak boleh ikut isi. Tanpa itu strip yang diperbesar melebarkan kolom, editor
+          mengukur kolom yang lebih lebar lalu memperbesar strip lagi, terus tanpa henti. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="relative min-h-0 min-w-0 flex-1 bg-bg-subtle lg:p-4">
           <StripEditor input={input} selected={selected} onSelect={setSelected} onChange={updateOverlay} onRemove={(id) => (removeOverlay(id), setSelected(null))} />
         </div>
         {/* Toolbar stiker terpilih menempel di bawah strip, bukan di panel alat: di HP panel cuma 46dvh dan

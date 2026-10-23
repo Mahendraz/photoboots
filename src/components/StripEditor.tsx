@@ -35,10 +35,8 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
   useLayoutEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    const fit = () => {
-      const r = el.getBoundingClientRect()
-      setArea({ w: r.width, h: r.height })
-    }
+    // Ukuran bagian dalam (tanpa scrollbar), supaya strip yang diperbesar pas selebar area dan tidak meluber.
+    const fit = () => setArea({ w: el.clientWidth, h: el.clientHeight })
     fit()
     const ro = new ResizeObserver(fit)
     ro.observe(el)
@@ -48,7 +46,8 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
   // Muat seluruhnya (contain), atau selebar area saat diperbesar.
   const pad = 24
   const kFit = Math.max(0, Math.min((area.w - pad) / W, (area.h - pad) / H))
-  const kWide = Math.max(0, (area.w - pad) / W)
+  // Paling besar resolusi asli strip (1 px kanvas = 1 px layar); lebih dari itu cuma buram.
+  const kWide = Math.max(0, Math.min(1, (area.w - pad) / W))
   const canZoom = kWide > kFit * 1.35
   const kView = zoomed && canZoom ? kWide : kFit
   const box = { w: Math.floor(W * kView), h: Math.floor(H * kView) }
@@ -104,7 +103,7 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
   const k = box.w / W // px layar per satuan kanvas
 
   return (
-    <div className="relative size-full">
+    <div className="relative size-full overflow-hidden">
       <div
         ref={wrapRef}
         className={`size-full ${zoomed && canZoom ? 'overflow-y-auto' : 'overflow-hidden'}`}
@@ -135,7 +134,7 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
           className="btn absolute right-3 bottom-3 min-h-10 px-3 text-sm"
           aria-pressed={zoomed}
         >
-          {zoomed ? 'Muat layar' : 'Perbesar'}
+          {zoomed ? 'Muat layar' : 'Perbesar tampilan'}
         </button>
       )}
     </div>

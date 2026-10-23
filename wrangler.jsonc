@@ -1,4 +1,4 @@
-// Worker `photobooth`: hanya melayani /api/* (kuota strip) dan /auth/* (login Auth0, skema asset.inwebsite.online).
+// Worker `photobooth`: hanya melayani /api/* (kuota strip, titipan ruang foto bareng) dan /auth/* (login Auth0, skema asset.inwebsite.online).
 // Semua halaman & aset dilayani langsung sebagai berkas statis (gratis, tidak dihitung request Worker).
 // Secret Worker (wrangler secret put): AUTH0_CLIENT_SECRET, SESSION_SECRET. Setelan aplikasi Auth0 ada di README.
 {
@@ -22,7 +22,11 @@
     "DAILY_LIMIT": "5"
   },
   // Batas percobaan login email per IP. namespace_id unik per akun Cloudflare (1001–1003, 4401 sudah dipakai proyek lain).
-  "ratelimits": [{ "name": "AUTH_LIMITER", "namespace_id": "5101", "simple": { "limit": 10, "period": 60 } }],
+  // ROOM_LIMITER: tulis titipan ruang foto bareng (detak tiap menit + tiap perubahan), per IP.
+  "ratelimits": [
+    { "name": "AUTH_LIMITER", "namespace_id": "5101", "simple": { "limit": 10, "period": 60 } },
+    { "name": "ROOM_LIMITER", "namespace_id": "5102", "simple": { "limit": 60, "period": 60 } }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -31,5 +35,7 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Hapus estafet (berlaku 4 jam) dan titipan ruang yang kedaluwarsa.
+  "triggers": { "crons": ["* * * * *"] },
   "observability": { "enabled": false }
 }

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { loginPath, useAuth } from '../lib/api'
+import { resumeRelay } from '../lib/relay'
 import { resumeRoom } from '../lib/room'
 import { restoreSession } from '../lib/stash'
 import { useUi } from '../ui'
 import { Curtain, useStepNav } from './Curtain'
 import { AccountSheet } from './LoginSheet'
+import { EstafetStartSheet } from './Estafet'
 import { InviteSheet } from './Room'
 import { Logo } from './Logo'
 import { STEPS, StepBar } from './StepBar'
@@ -28,6 +30,7 @@ export function AppShell() {
     void refresh()
     restoreSession()
       .then(() => resumeRoom())
+      .then(() => resumeRelay())
       .catch(() => null)
       .finally(() => setRestored(true))
   }, [refresh])
@@ -78,6 +81,7 @@ export function AppShell() {
       </main>
       <AccountSheet />
       <InviteSheet />
+      <EstafetStartSheet />
     </div>
   )
 }

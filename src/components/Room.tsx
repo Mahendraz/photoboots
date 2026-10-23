@@ -5,6 +5,7 @@ import { sendPatungan } from '../lib/share'
 import { useBooth } from '../store'
 import { PatunganHelp } from './PatunganHelp'
 import { Sheet } from './Sheet'
+import { useUi } from '../ui'
 
 /** Buat ruang (kalau belum) lalu buka lembar undangan. */
 export async function openInvite() {
@@ -113,7 +114,7 @@ export function InviteSheet() {
           <li>
             ✓ <b className="text-text">{role === 'host' ? 'Biarkan halaman ini terbuka' : 'Ruang ini aktif selama pembuatnya online'}</b>
             {role === 'host'
-              ? ' sampai semua selesai foto. Ke-refresh nggak apa-apa, ruangnya nyambung lagi sendiri. Kalau tab-nya ketutup, buka lagi link ruang ini.'
+              ? ' sampai semua selesai foto. Ditinggal sebentar buat kirim link nggak apa-apa: sampai 5 menit temanmu tetap bisa masuk dan foto, fotonya masuk ke sini begitu kamu balik.'
               : '.'}
           </li>
         </ul>
@@ -146,7 +147,7 @@ export function InviteSheet() {
  * Di dalam ruang: siapa saja yang ikut, status sambungan, ajak lagi, keluar.
  */
 export function RoomCard({ empty }: { empty: number }) {
-  const { code, role, status, members, selfId, owners, setInviteOpen } = useRoom()
+  const { code, role, status, members, selfId, hostId, owners, setInviteOpen } = useRoom()
   const design = useBooth((s) => s.design)
   const photos = useBooth((s) => s.photos)
   const user = useAuth((s) => s.user)
@@ -167,6 +168,9 @@ export function RoomCard({ empty }: { empty: number }) {
           }}
         >
           <LinkIcon /> {busy ? 'Menyiapkan ruang…' : 'Ajak lewat link'}
+        </button>
+        <button className="btn mt-2 w-full text-sm" onClick={() => useUi.getState().setEstafetOpen(true)}>
+          Estafet lewat link (nggak perlu online barengan)
         </button>
         <PatunganHelp />
         {photos.some(Boolean) && (
@@ -191,7 +195,8 @@ export function RoomCard({ empty }: { empty: number }) {
       </div>
       {status === 'host-left' ? (
         <p className="mt-1 text-muted">
-          Pembuat ruang terputus. Begitu dia buka lagi, kamu otomatis tersambung. Foto yang sudah masuk tetap ada, kamu masih bisa hias dan unduh.
+          {displayName(members.find((m) => m.id === hostId))} lagi keluar sebentar. Kamu tetap bisa foto di frame kosong; fotomu
+          terkirim otomatis begitu dia balik.
         </p>
       ) : role === 'host' ? (
         <p className="mt-1 text-muted">{online < 2 ? 'Menunggu temanmu klik link…' : 'Frame yang mereka foto langsung muncul di sini.'} Jangan tutup halaman ini dulu.</p>

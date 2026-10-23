@@ -21,6 +21,8 @@ const router = createBrowserRouter([
       { path: 'unduh', lazy: () => import('./pages/Result').then((m) => ({ Component: m.ResultPage })) },
       // Tujuan link "foto bareng" (/app/bareng#kode).
       { path: 'bareng', lazy: () => import('./pages/Join').then((m) => ({ Component: m.JoinPage })) },
+      // Tujuan link estafet (/app/estafet#kode).
+      { path: 'estafet', lazy: () => import('./pages/Estafet').then((m) => ({ Component: m.EstafetPage })) },
     ],
   },
   { path: '*', element: <Navigate to="/app" replace /> },

@@ -5,6 +5,7 @@ import { useStepNav } from '../components/Curtain'
 import { PhotoThumb } from '../components/PhotoThumb'
 import { ASPECTS, LAYOUTS, layoutById, photoCount } from '../lib/layouts'
 import { beep, burst, fileToPhoto, openCamera, shutter, snap, stopStream, unlockAudio } from '../lib/media'
+import { EstafetCard } from '../components/Estafet'
 import { RoomCard } from '../components/Room'
 import { claimSlots, displayName, memberColor, useRoom } from '../lib/room'
 import { newId, renderInput, useBooth } from '../store'
@@ -45,9 +46,12 @@ export function CapturePage() {
   const empties = photos.map((p, i) => (p || takenByOther(i) ? -1 : i)).filter((i) => i >= 0)
   const mineEmpty = empties.filter((i) => ownerOf(i) === room.selfId)
   const mineFilled = photos.map((p, i) => (p && ownerOf(i) === room.selfId ? i : -1)).filter((i) => i >= 0)
-  // Bagian wajar per orang (minimal anggap berdua), supaya satu orang tidak menghabiskan semua frame.
-  const share = Math.ceil(photos.length / Math.max(2, room.members.filter((m) => m.online).length))
-  const liveTargets = mineEmpty.length ? mineEmpty : empties.slice(0, Math.max(1, share - mineFilled.length))
+  // Bagian per orang: jatah estafet, atau bagian wajar di ruang live (minimal anggap berdua) supaya satu orang
+  // tidak menghabiskan semua frame.
+  const estafet = room.mode === 'estafet'
+  const share = room.perPerson ?? Math.ceil(photos.length / Math.max(2, room.members.filter((m) => m.online).length))
+  const quotaLeft = share - mineFilled.length - mineEmpty.length
+  const liveTargets = mineEmpty.length ? mineEmpty : estafet && quotaLeft <= 0 ? [] : empties.slice(0, Math.max(1, share - mineFilled.length))
 
   // Kamera
   useEffect(() => {
@@ -98,8 +102,8 @@ export function CapturePage() {
       cancelRef.current = false
       setNote(null)
       const granted = await claimSlots(targets)
-      if (!granted.length) return setNote('Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
-      if (granted.length < targets.length) setNote(`${targets.length - granted.length} frame sudah diambil teman, jadi dilewati.`)
+      if (!granted.length) return setNote(useRoom.getState().notice ?? 'Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
+      if (granted.length < targets.length) setNote(useRoom.getState().notice ?? `${targets.length - granted.length} frame sudah diambil teman, jadi dilewati.`)
       targets = granted
       setRunning(true)
       try {
@@ -137,7 +141,7 @@ export function CapturePage() {
       return
     }
     const targets = await claimSlots(wanted.slice(0, list.length))
-    if (!targets.length) return setNote('Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
+    if (!targets.length) return setNote(useRoom.getState().notice ?? 'Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
     for (let i = 0; i < Math.min(list.length, targets.length); i++) {
       try {
         setPhoto(targets[i], await fileToPhoto(list[i]))
@@ -236,7 +240,7 @@ export function CapturePage() {
             e.target.value = ''
           }}
         />
-        {note && <p className="text-center text-sm font-semibold text-danger">{note}</p>}
+        {(note ?? room.notice) && <p className="text-center text-sm font-semibold text-danger">{note ?? room.notice}</p>}
       </div>
 
       {/* Panel samping */}
@@ -247,7 +251,7 @@ export function CapturePage() {
               Frame {filled}/{photos.length}
             </h2>
             {live ? (
-              <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-bold text-accent-hover">bareng</span>
+              <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-bold text-accent-hover">{estafet ? 'estafet' : 'bareng'}</span>
             ) : (
               patunganFrom !== null && <span className="rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-bold text-accent-hover">patungan</span>
             )}
@@ -296,7 +300,7 @@ export function CapturePage() {
               )
             })}
           </div>
-          {selected !== null && photos[selected] && (!takenByOther(selected) || room.role === 'host') && (
+          {selected !== null && photos[selected] && (!takenByOther(selected) || (room.role === 'host' && !estafet)) && (
             <button className="mt-2 text-sm font-semibold text-danger underline" onClick={() => (setPhoto(selected, null), setSelected(null))}>
               Kosongkan frame {selected + 1}
             </button>
@@ -319,7 +323,7 @@ export function CapturePage() {
           )}
         </div>
 
-        <RoomCard empty={photos.length - filled} />
+        {estafet ? <EstafetCard /> : <RoomCard empty={photos.length - filled} />}
 
         <button className="btn btn-primary" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
           Lanjut hias →{empties.length > 0 && filled > 0 && <span className="text-xs font-normal opacity-70">({empties.length} kosong)</span>}
@@ -375,9 +379,9 @@ const FlipIcon = () => (
  */
 function LayoutSwitch({ disabled }: { disabled: boolean }) {
   const { design, photos, setLayout } = useBooth()
-  const { code, role, members, hostId, selfId, owners } = useRoom()
+  const { code, role, members, hostId, selfId, owners, mode } = useRoom()
   const live = code !== null
-  const guest = role === 'guest'
+  const guest = role === 'guest' || mode === 'estafet'
   const online = members.filter((m) => m.online).length
   const host = members.find((m) => m.id === hostId)
   const free = owners.filter((o) => o === null).length
@@ -406,9 +410,11 @@ function LayoutSwitch({ disabled }: { disabled: boolean }) {
   if (guest)
     return (
       <p className={`mt-3 rounded-xl p-3 text-xs ${noFrame ? 'bg-warning-subtle text-warning' : 'bg-bg-subtle text-muted'}`}>
-        {noFrame
-          ? `Semua frame sudah ada yang punya. Minta ${displayName(host)} ganti layout yang framenya lebih banyak, nanti frame barunya muncul di sini.`
-          : `Layout diatur ${displayName(host)}. Frame kurang? Minta dia ganti layout.`}
+        {mode === 'estafet'
+          ? 'Layout estafet sudah ditentukan dari awal, jadi tidak bisa diganti.'
+          : noFrame
+            ? `Semua frame sudah ada yang punya. Minta ${displayName(host)} ganti layout yang framenya lebih banyak, nanti frame barunya muncul di sini.`
+            : `Layout diatur ${displayName(host)}. Frame kurang? Minta dia ganti layout.`}
       </p>
     )
 

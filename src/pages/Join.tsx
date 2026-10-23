@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, useLocation } from 'react-router'
 import { useStepNav } from '../components/Curtain'
 import { MemberChip } from '../components/Room'
 import { MiniStrip } from '../components/MiniStrip'
@@ -15,7 +15,8 @@ import { renderInput, useBooth } from '../store'
  */
 export function JoinPage() {
   const stepTo = useStepNav()
-  const code = useMemo(() => location.hash.slice(1).replace(/[^a-z0-9]/g, ''), [])
+  // Dari hash URL secara reaktif: link ruang lain yang dibuka di tab yang sama hanya mengganti hash, tanpa memuat ulang.
+  const code = useLocation().hash.slice(1).replace(/[^a-z0-9]/g, '')
   const { code: current, role, status, members, selfId, hostId, owners } = useRoom()
   const design = useBooth((s) => s.design)
   const photos = useBooth((s) => s.photos)
@@ -69,7 +70,7 @@ export function JoinPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex min-h-full max-w-md flex-col justify-center px-4 py-8">
-        {status === 'ready' ? (
+        {status === 'ready' || status === 'host-left' ? (
           <div className="anim-rise card p-5">
             <p className="text-sm font-semibold text-accent">Foto bareng dari jauh</p>
             <h1 className="mt-1 font-heading text-2xl font-bold">{hostLabel} ngajak kamu foto bareng</h1>
@@ -99,6 +100,12 @@ export function JoinPage() {
                 className="mt-1.5 min-h-11 w-full rounded-[10px] border border-border bg-surface px-3 text-base"
               />
             </label>
+            {status === 'host-left' && (
+              <p className="mt-4 rounded-xl bg-accent-subtle p-3 text-sm">
+                <b>{hostLabel} lagi keluar sebentar.</b> Kamu tetap bisa masuk dan foto di frame kosong. Fotomu terkirim otomatis begitu dia
+                balik ke InWebBooth.
+              </p>
+            )}
             {free === 0 && !owners.includes(selfId) && (
               <p className="mt-4 rounded-xl bg-warning-subtle p-3 text-sm text-warning">
                 Semua frame sudah ada yang punya. Masuk saja, lalu minta {hostLabel} ganti layout yang framenya lebih banyak biar kamu kebagian.
@@ -109,18 +116,6 @@ export function JoinPage() {
             </button>
             <p className="mt-3 text-center text-xs text-muted">Foto dikirim langsung ke HP teman-temanmu, tidak disimpan di server.</p>
           </div>
-        ) : status === 'host-left' ? (
-          <Notice
-            title="Pembuat ruang terputus"
-            body={`${hostLabel} keluar dari halamannya. Begitu dia buka lagi, kamu otomatis tersambung. Kalau lama, minta dia kirim link baru.`}
-          >
-            <button className="btn btn-primary w-full" onClick={retry}>
-              Coba sambung lagi
-            </button>
-            <button className="btn w-full" onClick={(e) => (void leaveRoom(), stepTo('/app', e))}>
-              Bikin strip sendiri
-            </button>
-          </Notice>
         ) : (
           <div className="card p-5 text-center">
             <span className="mx-auto block size-12 animate-spin rounded-full border-4 border-accent-subtle border-t-accent" aria-hidden />
@@ -130,7 +125,7 @@ export function JoinPage() {
               <div className="mt-5 space-y-3 text-left text-sm">
                 <p className="rounded-xl bg-warning-subtle p-3 text-warning">Belum nyambung juga. Ini yang biasanya jadi penyebab:</p>
                 <ul className="list-disc space-y-1.5 pl-5 text-muted">
-                  <li>Temanmu sudah menutup InWebBooth. Ruang cuma aktif selama dia membuka halamannya.</li>
+                  <li>Temanmu sudah lebih dari 5 menit tidak membuka InWebBooth. Minta dia buka lagi, nanti kamu otomatis tersambung.</li>
                   <li>Jaringan seluler kadang memblokir sambungan langsung antar-HP. Coba pindah ke Wi-Fi.</li>
                 </ul>
                 <div className="grid gap-2 pt-1">
@@ -159,16 +154,6 @@ export function JoinPage() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function Notice({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
-  return (
-    <div className="card space-y-3 p-5">
-      <h1 className="font-heading text-xl font-bold">{title}</h1>
-      <p className="text-sm text-muted">{body}</p>
-      {children}
     </div>
   )
 }

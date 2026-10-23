@@ -219,7 +219,7 @@ function ArrangePanel() {
   const stepTo = useStepNav()
   const { design, photos, setDesign } = useBooth()
   // Tamu mengikuti layout pembuat ruang.
-  const locked = useRoom((s) => s.role === 'guest')
+  const locked = useRoom((s) => s.role === 'guest' || s.mode === 'estafet')
   const layout = layoutById(design.layoutId)
   return (
     <div className="space-y-4 text-sm">

@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import type { JsonValue, Room } from 'trystero'
 import { layoutById } from './layouts'
 import type { Photo } from './render'
+import { decodePhotoBytes, encodePhotoBytes } from './photoCodec'
+import { leaveRelay, relayClaim } from './relay'
+import { dropBox, getBox, putBox } from './roomBox'
 import { idbDel, idbGet, idbPut, packPhotos, unpackPhotos, type StoredPhoto } from './stash'
 import { useBooth, type Design } from '../store'
 
@@ -18,6 +21,11 @@ import { useBooth, type Design } from '../store'
  * dan ruang + fotonya disimpan di browser ini saja (sessionStorage + IndexedDB, tidak ke server).
  * Halaman yang ke-refresh menyambung lagi sendiri; tuan rumah yang ke-refresh membuka ruang yang sama,
  * dan tamu yang masih terbuka tersambung lagi otomatis.
+ *
+ * Pembuat ruang pasti keluar sebentar (kirim link di WhatsApp), dan browser HP menghentikan sambungan halaman yang
+ * ditinggal. Supaya teman tetap bisa masuk, layout + nama + pemilik frame dititipkan terenkripsi di server (roomBox.ts,
+ * tanpa foto). Tamu yang tidak menemukan tuan rumah membuka titipan itu dan bisa langsung foto; fotonya terkirim
+ * begitu tuan rumah kembali.
  */
 
 const APP_ID = 'inwebbooth-bareng-v1'
@@ -28,7 +36,12 @@ const MEMBER_KEY = 'inwebbooth-member'
 const SESSION_KEY = 'inwebbooth-room'
 const STASH_KEY = 'room'
 const STASH_MAX_AGE = 3 * 60 * 60_000
-const SEND_SIDE = 1200
+/** Tuan rumah memperbarui titipan ruang tiap menit selama halamannya terbuka. */
+const BOX_BEAT_MS = 60_000
+/** Tamu membuka titipan kalau tuan rumah belum menyambut setelah sekian lama. */
+const BOX_TRY_MS = 4_000
+/** Kembali ke halaman setelah ditinggal selama ini: pastikan sambungan relay masih hidup. */
+const REVIVE_AFTER_MS = 15_000
 /** Batas menunggu tuan rumah sebelum menampilkan bantuan (koneksi tetap dicoba di belakang). */
 const CONNECT_HELP_MS = 20_000
 
@@ -52,9 +65,13 @@ export type RoomStatus =
   | 'ready'
   /** Tamu: tuan rumah terputus (menunggu dia kembali). Foto yang sudah ada tetap bisa dihias & diunduh. */
   | 'host-left'
+  /** Estafet: lewat 4 jam / dihapus pembuatnya. Foto yang sudah ada di HP ini tetap bisa dihias & diunduh. */
+  | 'expired'
 
 interface RoomState {
   code: string | null
+  /** `live`: ruang langsung antar-HP. `estafet`: gantian lewat link, foto dititipkan terenkripsi (relay.ts). */
+  mode: 'live' | 'estafet'
   role: 'host' | 'guest' | null
   status: RoomStatus
   /** Kunci anggota sendiri (lihat MEMBER_KEY). ID anggota, pemilik frame, dan hostId memakai kunci ini. */
@@ -67,11 +84,17 @@ interface RoomState {
   /** Kemajuan foto yang sedang dikirim/diterima per frame (0–1). */
   transfer: Record<number, number>
   inviteOpen: boolean
+  /** Estafet: jatah frame per orang dan batas waktunya. */
+  perPerson: number | null
+  expiresAt: number | null
+  /** Pesan untuk ditampilkan di langkah Foto (mis. jatah habis, frame keburu diambil teman). */
+  notice: string | null
   setInviteOpen: (open: boolean) => void
 }
 
 export const useRoom = create<RoomState>()((set) => ({
   code: null,
+  mode: 'live',
   role: null,
   status: 'connecting',
   selfId: '',
@@ -81,6 +104,9 @@ export const useRoom = create<RoomState>()((set) => ({
   owners: [],
   transfer: {},
   inviteOpen: false,
+  perPerson: null,
+  expiresAt: null,
+  notice: null,
   setInviteOpen: (inviteOpen) => set({ inviteOpen }),
 }))
 
@@ -110,9 +136,9 @@ export function displayName(m: Member | undefined, selfId?: string) {
 
 export const roomLink = (code: string) => `${location.origin}/app/bareng#${code}`
 
-function newCode() {
+export function newCode(length = 10) {
   const abc = 'abcdefghjkmnpqrstuvwxyz23456789'
-  const bytes = crypto.getRandomValues(new Uint8Array(10))
+  const bytes = crypto.getRandomValues(new Uint8Array(length))
   return [...bytes].map((b) => abc[b % abc.length]).join('')
 }
 
@@ -193,48 +219,13 @@ function applyPhoto(slot: number, photo: Photo | null) {
   }
 }
 
-const toBlob = (c: HTMLCanvasElement, q: number) =>
-  new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/jpeg', q))
-
-function shrink(src: HTMLCanvasElement, maxSide: number) {
-  const k = Math.min(1, maxSide / Math.max(src.width, src.height))
-  if (k === 1) return src
-  const c = document.createElement('canvas')
-  c.width = Math.round(src.width * k)
-  c.height = Math.round(src.height * k)
-  const ctx = c.getContext('2d')!
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(src, 0, 0, c.width, c.height)
-  return c
-}
-
 async function encodePhoto(slot: number, p: Photo) {
-  const parts = [await toBlob(shrink(p.img, SEND_SIDE), 0.88), ...(await Promise.all((p.burst ?? []).map((f) => toBlob(f, 0.75))))]
-  const buf = await new Blob(parts).arrayBuffer()
-  const meta: PhotoMeta = { slot, id: p.id, sizes: parts.map((b) => b.size) }
+  const { buf, sizes } = await encodePhotoBytes(p)
+  const meta: PhotoMeta = { slot, id: p.id, sizes }
   return { buf, meta }
 }
 
-async function blobToCanvas(b: Blob) {
-  const bmp = await createImageBitmap(b)
-  const c = document.createElement('canvas')
-  c.width = bmp.width
-  c.height = bmp.height
-  c.getContext('2d')!.drawImage(bmp, 0, 0)
-  bmp.close()
-  return c
-}
-
-async function decodePhoto(buf: ArrayBuffer, meta: PhotoMeta): Promise<Photo> {
-  let at = 0
-  const blobs = meta.sizes.map((n) => {
-    const b = new Blob([buf.slice(at, at + n)], { type: 'image/jpeg' })
-    at += n
-    return b
-  })
-  const [img, ...burst] = await Promise.all(blobs.map(blobToCanvas))
-  return { id: meta.id, img, burst: burst.length ? burst : undefined, source: 'friend' }
-}
+const decodePhoto = (buf: ArrayBuffer, meta: PhotoMeta) => decodePhotoBytes(buf, meta.sizes, meta.id)
 
 function setTransfer(slot: number, v: number | null) {
   const t = { ...useRoom.getState().transfer }
@@ -414,7 +405,9 @@ function guestApply(snap: RoomSnapshot) {
   snap.ids.forEach((id, i) => {
     const mine = pendingOut.get(i)
     if (mine) {
-      if (id === mine || snap.owners[i] !== self) pendingOut.delete(i)
+      // Foto sendiri yang masih dikirim tetap dipertahankan, kecuali frame-nya ternyata milik orang lain.
+      const otherOwner = snap.owners[i] !== null && snap.owners[i] !== self
+      if (id === mine || otherOwner) pendingOut.delete(i)
       else return
     }
     const cur = photos[i]?.id ?? null
@@ -441,6 +434,7 @@ async function guestOnLocal(slot: number, p: Photo | null) {
     return w.release(slot)
   }
   pendingOut.set(slot, p.id)
+  received.set(p.id, p)
   const { buf, meta } = await encodePhoto(slot, p)
   setTransfer(slot, 0)
   await w.photo(buf, meta, host).catch(() => null)
@@ -454,7 +448,10 @@ function watchLocal() {
   unwatch()
   unwatchers.push(
     useBooth.subscribe((next, prev) => {
-      if (next.photos !== prev.photos || next.design !== prev.design) saveSoon()
+      if (next.photos !== prev.photos || next.design !== prev.design) {
+        saveSoon()
+        boxSoon()
+      }
       if (applying || !wire) return
       const { role, status } = useRoom.getState()
       const relayout = next.design.layoutId !== prev.design.layoutId || next.design.photoMode !== prev.design.photoMode
@@ -467,21 +464,31 @@ function watchLocal() {
       })
     }),
     useRoom.subscribe((next, prev) => {
-      if (next.members !== prev.members || next.owners !== prev.owners) saveSoon()
+      if (next.members !== prev.members || next.owners !== prev.owners) {
+        saveSoon()
+        boxSoon()
+      }
     }),
   )
 }
 
-/** Tamu yang tersambung lagi: foto miliknya yang belum dimiliki tuan rumah (diambil saat terputus) dikirim ulang. */
+/**
+ * Tamu yang tersambung lagi: foto miliknya yang belum dimiliki tuan rumah (diambil saat terputus) dikirim ulang.
+ * Kalau frame-nya keburu diambil orang lain, fotonya pindah ke frame kosong lain (kalau masih ada).
+ */
 function guestPushMissing(snap: RoomSnapshot) {
   const self = useRoom.getState().selfId
-  return useBooth
-    .getState()
-    .photos.map((p, i) => ({ p, i }))
-    .filter(({ p, i }) => p && p.source !== 'friend' && snap.ids[i] !== p.id && (snap.owners[i] === null || snap.owners[i] === self)) as {
-    p: Photo
-    i: number
-  }[]
+  const taken = new Set<number>()
+  const out: { p: Photo; i: number }[] = []
+  useBooth.getState().photos.forEach((p, i) => {
+    if (!p || p.source === 'friend' || snap.ids.includes(p.id)) return
+    let at = i < snap.owners.length && (snap.owners[i] === null || snap.owners[i] === self) ? i : -1
+    if (at < 0 || taken.has(at)) at = snap.owners.findIndex((o, j) => o === null && !snap.ids[j] && !taken.has(j))
+    if (at < 0) return
+    taken.add(at)
+    out.push({ p, i: at })
+  })
+  return out
 }
 
 async function connect(code: string, role: 'host' | 'guest', name: string) {
@@ -556,6 +563,7 @@ async function connect(code: string, role: 'host' | 'guest', name: string) {
     welcome.onMessage = (d, { peerId }) => {
       const w = d as unknown as Welcome
       clearTimeout(helpTimer)
+      clearTimeout(boxTry)
       let push: { p: Photo; i: number }[] = []
       if (!welcomed) {
         welcomed = true
@@ -590,17 +598,119 @@ async function connect(code: string, role: 'host' | 'guest', name: string) {
     }
     helpTimer = setTimeout(() => {
       if (useRoom.getState().status === 'connecting') patch({ status: 'slow' })
+      void guestFromBox(code)
     }, CONNECT_HELP_MS)
+    clearTimeout(boxTry)
+    boxTry = setTimeout(() => void guestFromBox(code), BOX_TRY_MS)
   }
 
   watchLocal()
   saveSoon()
   keepAwake()
+  if (role === 'host') {
+    clearInterval(beat)
+    beat = setInterval(() => document.visibilityState === 'visible' && void publishBox(), BOX_BEAT_MS)
+    void publishBox()
+  }
+}
+
+// ------------------------------------------------------------------ titipan ruang (pembuat ruang keluar sebentar)
+
+interface BoxSnapshot {
+  hostKey: string
+  hostName: string
+  design: Design
+  members: Member[]
+  owners: (string | null)[]
+  ids: (string | null)[]
+}
+
+/** Kunci tulis titipan milik pembuat ruang (disimpan bersama ruang di perangkat ini). */
+let writeKey: string | null = null
+let boxTimer: ReturnType<typeof setTimeout> | undefined
+let boxTry: ReturnType<typeof setTimeout> | undefined
+let beat: ReturnType<typeof setInterval> | undefined
+
+const newWriteKey = () => newCode() + newCode()
+
+function boxSoon() {
+  if (useRoom.getState().role !== 'host') return
+  clearTimeout(boxTimer)
+  boxTimer = setTimeout(() => void publishBox(), 800)
+}
+
+async function publishBox(keepalive = false) {
+  const s = useRoom.getState()
+  if (s.role !== 'host' || !s.code || !writeKey) return
+  const self = s.members.find((m) => m.id === s.selfId)
+  const snap: BoxSnapshot = {
+    hostKey: s.selfId,
+    hostName: self?.name || s.hostName,
+    design: { ...useBooth.getState().design, overlays: [] },
+    members: s.members,
+    owners: s.owners,
+    ids,
+  }
+  await putBox(s.code, writeKey, snap, keepalive)
+}
+
+/** Tamu belum disambut tuan rumah: buka titipan ruang, lalu lanjut sendiri sambil menunggu dia kembali. */
+async function guestFromBox(code: string) {
+  const waiting = () => {
+    const s = useRoom.getState()
+    return s.code === code && s.role === 'guest' && (s.status === 'connecting' || s.status === 'slow')
+  }
+  if (!waiting()) return
+  const box = await getBox<BoxSnapshot>(code)
+  if (!box || !waiting()) return
+  applying = true
+  try {
+    if (!welcomed) useBooth.getState().loadPatungan(box.design, [], box.hostName || null)
+  } finally {
+    applying = false
+  }
+  welcomed = true
+  guestLayout({ layoutId: box.design.layoutId, photoMode: box.design.photoMode })
+  ids = box.ids.slice()
+  const self = useRoom.getState().selfId
+  const members = box.members.map((m) => ({ ...m, online: m.id === self }))
+  if (!members.some((m) => m.id === self)) {
+    const used = new Set(members.map((m) => m.tone))
+    const tone = [...Array(members.length + 1).keys()].find((t) => !used.has(t))!
+    members.push({ id: self, name: savedName(), tone, online: true })
+  }
+  clearTimeout(helpTimer)
+  patch({ status: 'host-left', hostId: box.hostKey, hostName: box.hostName, members, owners: box.owners.slice() })
+}
+
+// ------------------------------------------------------------------ kembali ke halaman
+
+/**
+ * HP yang kembali ke halaman (mis. dari WhatsApp): relay yang sudah menyerah menyambung dibangunkan, dan kalau tetap
+ * mati, ruangnya disambung ulang. Tamu yang masih terbuka tersambung lagi otomatis.
+ */
+async function revive() {
+  const s = useRoom.getState()
+  if (!s.code || !s.role || !wire) return
+  const { getRelaySockets, resumeRelayReconnection } = await import('trystero')
+  resumeRelayReconnection()
+  const sockets = Object.values((getRelaySockets() ?? {}) as Record<string, WebSocket | undefined>)
+  if (sockets.some((ws) => ws?.readyState === WebSocket.OPEN)) return
+  const w = wire
+  wire = null
+  await w.room.leave().catch(() => null)
+  const now = useRoom.getState()
+  if (now.code !== s.code || !now.role) return
+  if (now.role === 'host') patch({ members: now.members.map((m) => (m.id === now.selfId ? m : { ...m, online: false })) })
+  await connect(now.code, now.role, savedName())
 }
 
 /** Buat ruang baru dari sesi sekarang; foto yang sudah ada jadi milik tuan rumah. */
 export async function createRoom(name: string) {
-  if (inRoom()) return useRoom.getState().code!
+  if (inRoom()) {
+    if (useRoom.getState().mode === 'live') return useRoom.getState().code!
+    await leaveRoom()
+  }
   const code = newCode()
   const key = memberKey()
   saveName(name)
@@ -619,6 +729,7 @@ export async function createRoom(name: string) {
     owners: photos.map((p) => (p ? key : null)),
     transfer: {},
   })
+  writeKey = newWriteKey()
   rememberRoom(code, 'host')
   await connect(code, 'host', name)
   return code
@@ -667,16 +778,36 @@ export function renameSelf(name: string) {
 export async function claimSlots(slots: number[]) {
   const s = useRoom.getState()
   if (!s.code) return slots
+  if (s.mode === 'estafet') return relayClaim(slots)
   if (s.role === 'host') return hostClaim(slots, s.selfId)
-  if (s.status === 'host-left') return slots.filter((i) => s.owners[i] === null || s.owners[i] === s.selfId)
+  if (s.status === 'host-left') {
+    // Tuan rumah sedang keluar: pesan frame kosong sendiri; diselaraskan begitu dia kembali.
+    const granted = slots.filter((i) => s.owners[i] === null || s.owners[i] === s.selfId)
+    const owners = s.owners.slice()
+    granted.forEach((i) => (owners[i] = s.selfId))
+    patch({ owners })
+    return granted
+  }
   if (s.status !== 'ready' || !wire) return []
   const granted = await wire.claim(slots)
   return Array.isArray(granted) ? granted : []
 }
 
 export async function leaveRoom() {
+  const { code, role, mode } = useRoom.getState()
+  if (mode === 'estafet') {
+    leaveRelay()
+    patch({ code: null, mode: 'live', role: null, status: 'connecting', hostId: null, hostName: '', members: [], owners: [], transfer: {}, perPerson: null, expiresAt: null, notice: null })
+    return
+  }
+  // Pembuat ruang keluar: titipannya ikut dihapus, teman tidak bisa masuk lagi.
+  if (code && role === 'host' && writeKey) void dropBox(code, writeKey)
+  writeKey = null
   clearTimeout(helpTimer)
   clearTimeout(saveTimer)
+  clearTimeout(boxTimer)
+  clearTimeout(boxTry)
+  clearInterval(beat)
   unwatch()
   forgetRoom()
   const w = wire
@@ -691,7 +822,7 @@ export async function leaveRoom() {
   pendingOut.clear()
   welcomed = false
   releaseAwake()
-  patch({ code: null, role: null, status: 'connecting', hostId: null, hostName: '', members: [], owners: [], transfer: {}, inviteOpen: false })
+  patch({ code: null, role: null, status: 'connecting', hostId: null, hostName: '', members: [], owners: [], transfer: {}, inviteOpen: false, notice: null })
   await w?.room.leave().catch(() => null)
 }
 
@@ -710,6 +841,8 @@ interface RoomStash {
   photos: (StoredPhoto | null)[]
   stripId: string
   patunganFrom: string | null
+  /** Kunci tulis titipan ruang (pembuat ruang). */
+  writeKey?: string | null
 }
 
 let unwatchers: (() => void)[] = []
@@ -723,7 +856,7 @@ function unwatch() {
   unwatchers = []
 }
 
-function memberKey() {
+export function memberKey() {
   try {
     let k = localStorage.getItem(MEMBER_KEY)
     if (!k) localStorage.setItem(MEMBER_KEY, (k = newCode()))
@@ -766,7 +899,8 @@ function saveSoon() {
 
 async function save() {
   const s = useRoom.getState()
-  if (!s.code || !s.role) return
+  // Estafet dipulihkan dari titipan server (relay.ts), bukan dari simpanan lokal ini.
+  if (!s.code || !s.role || s.mode !== 'live') return
   const b = useBooth.getState()
   try {
     const photos = await packPhotos(b.photos)
@@ -784,6 +918,7 @@ async function save() {
       photos,
       stripId: b.stripId,
       patunganFrom: b.patunganFrom,
+      writeKey,
     }
     await idbPut(STASH_KEY, data)
   } catch {
@@ -833,6 +968,8 @@ async function resumeNow(code?: string) {
   pendingOut.clear()
   encoded.clear()
   if (role === 'host') {
+    // Tanpa kunci lama, titipan ruang tidak bisa diperbarui lagi (server menolak); ruang live tetap jalan.
+    writeKey = stash?.writeKey ?? newWriteKey()
     ids = stash?.ids.slice() ?? photos.map((p) => p?.id ?? null)
     photoOwner.clear()
     ids.forEach((id, i) => id && photoOwner.set(id, stash?.owners[i] ?? key))
@@ -882,7 +1019,19 @@ async function requestAwake() {
     /* tidak didukung / ditolak */
   }
 }
-const onVisible = () => void requestAwake()
+let hiddenAt = 0
+function onVisible() {
+  if (document.visibilityState === 'hidden') {
+    // Detik terakhir sebelum browser menghentikan halaman: perbarui titipan supaya teman bisa masuk 5 menit ke depan.
+    hiddenAt = Date.now()
+    if (useRoom.getState().role === 'host') void publishBox(true)
+    return
+  }
+  void requestAwake()
+  if (hiddenAt && Date.now() - hiddenAt > REVIVE_AFTER_MS) void revive()
+  hiddenAt = 0
+  if (useRoom.getState().role === 'host') void publishBox()
+}
 function keepAwake() {
   document.addEventListener('visibilitychange', onVisible)
   void requestAwake()

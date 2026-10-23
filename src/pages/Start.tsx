@@ -9,6 +9,7 @@ import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
 import { leaveRoom, useRoom } from '../lib/room'
 import { LinkIcon, openInvite } from '../components/Room'
 import { renderInput, useBooth } from '../store'
+import { useUi } from '../ui'
 
 export function StartPage() {
   const stepTo = useStepNav()
@@ -17,11 +18,13 @@ export function StartPage() {
   const setDesign = useBooth((s) => s.setDesign)
   const loadPatungan = useBooth((s) => s.loadPatungan)
   const fileRef = useRef<HTMLInputElement>(null)
+  const setEstafetOpen = useUi((s) => s.setEstafetOpen)
   const [error, setError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
   // Di ruang foto bareng, layout diatur pembuat ruang dan ikut berubah di HP semua orang.
   const inRoomNow = useRoom((s) => s.code !== null)
-  const locked = useRoom((s) => s.role === 'guest')
+  const locked = useRoom((s) => s.role === 'guest' || s.mode === 'estafet')
+  const estafet = useRoom((s) => s.mode === 'estafet')
   const roomSize = useRoom((s) => s.members.filter((m) => m.online).length)
   const layout = layoutById(design.layoutId)
   const count = photoCount(layout, design.photoMode)
@@ -60,9 +63,11 @@ export function StartPage() {
         {inRoomNow && (
           <div className="mt-4 flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent-subtle p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>
-              <b>Kamu lagi di ruang foto bareng ({roomSize} orang).</b>{' '}
+              <b>{estafet ? 'Kamu lagi ikut estafet foto.' : `Kamu lagi di ruang foto bareng (${roomSize} orang).`}</b>{' '}
               <span className="text-muted">
-                {locked
+                {estafet
+                  ? 'Layout estafet sudah ditentukan dari awal. Template tetap bisa diganti.'
+                  : locked
                   ? 'Layout diatur pembuat ruang supaya frame semua orang sama. Template tetap bisa diganti.'
                   : 'Ganti layout di sini langsung berubah di HP semua orang. Foto yang sudah masuk tetap aman.'}
               </span>
@@ -178,6 +183,17 @@ export function StartPage() {
               }}
             >
               <LinkIcon /> {opening ? 'Menyiapkan…' : inRoomNow ? 'Ajak teman lagi' : 'Ajak lewat link'}
+            </button>
+          </div>
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm">
+              <b>Nggak bisa online barengan? Pakai estafet.</b>{' '}
+              <span className="text-muted">
+                Kamu foto duluan, kirim link, temanmu foto bagiannya lalu meneruskan link yang sama sampai penuh. Link berlaku 4 jam.
+              </span>
+            </p>
+            <button className="btn shrink-0 text-sm" onClick={() => setEstafetOpen(true)}>
+              Mulai estafet
             </button>
           </div>
           <PatunganGuide />

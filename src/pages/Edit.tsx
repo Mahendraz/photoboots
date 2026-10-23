@@ -218,7 +218,8 @@ function TextPanel({
 function ArrangePanel() {
   const stepTo = useStepNav()
   const { design, photos, setDesign } = useBooth()
-  const locked = useRoom((s) => s.code !== null)
+  // Tamu mengikuti layout pembuat ruang.
+  const locked = useRoom((s) => s.role === 'guest')
   const layout = layoutById(design.layoutId)
   return (
     <div className="space-y-4 text-sm">
@@ -256,7 +257,7 @@ function ArrangePanel() {
                 onClick={() => setDesign({ photoMode: id })}
                 aria-pressed={design.photoMode === id}
                 disabled={locked && design.photoMode !== id}
-                title={locked ? 'Dikunci selama foto bareng' : undefined}
+                title={locked ? 'Diatur pembuat ruang' : undefined}
                 className={`flex-1 rounded-full border-2 px-3 py-1.5 font-semibold disabled:opacity-40 ${design.photoMode === id ? 'border-accent bg-accent text-white' : 'border-border'}`}
               >
                 {label}

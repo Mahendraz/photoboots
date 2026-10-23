@@ -19,8 +19,9 @@ export function StartPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
-  // Di ruang foto bareng, jumlah frame dikunci supaya frame semua orang sama.
-  const locked = useRoom((s) => s.code !== null)
+  // Di ruang foto bareng, layout diatur pembuat ruang dan ikut berubah di HP semua orang.
+  const inRoomNow = useRoom((s) => s.code !== null)
+  const locked = useRoom((s) => s.role === 'guest')
   const roomSize = useRoom((s) => s.members.filter((m) => m.online).length)
   const layout = layoutById(design.layoutId)
   const count = photoCount(layout, design.photoMode)
@@ -56,11 +57,15 @@ export function StartPage() {
         <h1 className="font-heading text-3xl font-bold sm:text-4xl">Mau strip yang mana?</h1>
         <p className="mt-1 text-muted">Pilih jumlah frame dan template-nya. Stiker, filter, dan teks ditambah di langkah Hias.</p>
 
-        {locked && (
+        {inRoomNow && (
           <div className="mt-4 flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent-subtle p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>
               <b>Kamu lagi di ruang foto bareng ({roomSize} orang).</b>{' '}
-              <span className="text-muted">Layout dikunci supaya frame semua orang sama. Template tetap bisa diganti.</span>
+              <span className="text-muted">
+                {locked
+                  ? 'Layout diatur pembuat ruang supaya frame semua orang sama. Template tetap bisa diganti.'
+                  : 'Ganti layout di sini langsung berubah di HP semua orang. Foto yang sudah masuk tetap aman.'}
+              </span>
             </p>
             <button className="btn shrink-0 text-sm" onClick={() => void leaveRoom()}>
               Keluar ruang
@@ -172,7 +177,7 @@ export function StartPage() {
                 stepTo('/app/foto', at)
               }}
             >
-              <LinkIcon /> {opening ? 'Menyiapkan…' : locked ? 'Ajak teman lagi' : 'Ajak lewat link'}
+              <LinkIcon /> {opening ? 'Menyiapkan…' : inRoomNow ? 'Ajak teman lagi' : 'Ajak lewat link'}
             </button>
           </div>
           <PatunganGuide />

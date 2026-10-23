@@ -6,7 +6,7 @@ import { MiniStrip } from '../components/MiniStrip'
 import { useAuth } from '../lib/api'
 import { layoutById } from '../lib/layouts'
 import { PATUNGAN_ACCEPT, readPatungan } from '../lib/patungan'
-import { displayName, joinRoom, leaveRoom, renameSelf, savedName, useRoom } from '../lib/room'
+import { displayName, joinRoom, leaveRoom, renameSelf, resumeRoom, savedName, useRoom } from '../lib/room'
 import { renderInput, useBooth } from '../store'
 
 /**
@@ -27,7 +27,11 @@ export function JoinPage() {
 
   useEffect(() => {
     if (code.length < 6 || ownRoom) return
-    void joinRoom(code, name)
+    // Link yang pernah dibuka di browser ini (tab tertutup, termasuk oleh pembuat ruangnya): lanjutkan
+    // dengan frame dan foto yang tersimpan di perangkat ini. Kalau belum pernah, masuk sebagai tamu baru.
+    void resumeRoom(code).then((resumed) => {
+      if (!resumed) return joinRoom(code, name)
+    })
     // Sambung sekali saat halaman dibuka; nama dikirim ulang saat masuk.
   }, [code])
 
@@ -95,19 +99,21 @@ export function JoinPage() {
                 className="mt-1.5 min-h-11 w-full rounded-[10px] border border-border bg-surface px-3 text-base"
               />
             </label>
-            <button className="btn btn-primary mt-4 w-full text-lg" onClick={enter} disabled={free === 0 && !owners.includes(selfId)}>
-              {free === 0 && !owners.includes(selfId) ? 'Frame-nya sudah penuh' : 'Masuk & foto →'}
+            {free === 0 && !owners.includes(selfId) && (
+              <p className="mt-4 rounded-xl bg-warning-subtle p-3 text-sm text-warning">
+                Semua frame sudah ada yang punya. Masuk saja, lalu minta {hostLabel} ganti layout yang framenya lebih banyak biar kamu kebagian.
+              </p>
+            )}
+            <button className="btn btn-primary mt-4 w-full text-lg" onClick={enter}>
+              Masuk & foto →
             </button>
             <p className="mt-3 text-center text-xs text-muted">Foto dikirim langsung ke HP teman-temanmu, tidak disimpan di server.</p>
           </div>
-        ) : status === 'full' ? (
-          <Notice title="Ruangnya sudah penuh" body={`Semua frame di ruang ${hostLabel} sudah punya orang. Minta dia pilih layout dengan frame lebih banyak, lalu kirim link baru.`}>
-            <button className="btn w-full" onClick={(e) => (void leaveRoom(), stepTo('/app', e))}>
-              Bikin strip sendiri
-            </button>
-          </Notice>
         ) : status === 'host-left' ? (
-          <Notice title="Ruangnya sudah tutup" body={`${hostLabel} sudah menutup halamannya. Minta dia buka lagi dan kirim link baru.`}>
+          <Notice
+            title="Pembuat ruang terputus"
+            body={`${hostLabel} keluar dari halamannya. Begitu dia buka lagi, kamu otomatis tersambung. Kalau lama, minta dia kirim link baru.`}
+          >
             <button className="btn btn-primary w-full" onClick={retry}>
               Coba sambung lagi
             </button>

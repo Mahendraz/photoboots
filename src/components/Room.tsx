@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/api'
 import { createRoom, displayName, leaveRoom, memberColor, renameSelf, roomLink, savedName, useRoom, type Member } from '../lib/room'
 import { sendPatungan } from '../lib/share'
-import { layoutById, photoCount } from '../lib/layouts'
 import { useBooth } from '../store'
 import { PatunganHelp } from './PatunganHelp'
 import { Sheet } from './Sheet'
@@ -44,7 +43,6 @@ export function InviteSheet() {
 
   if (!code) return null
   const link = roomLink(code)
-  const capacity = Math.min(10, photoCount(layoutById(design.layoutId), design.photoMode))
   const text = `Yuk foto bareng di InWebBooth! Klik link ini, langsung masuk ke ruang fotoku:\n${link}`
   const canShare = typeof navigator.share === 'function'
 
@@ -111,10 +109,12 @@ export function InviteSheet() {
 
         <ul className="space-y-1.5 rounded-xl bg-bg-subtle p-3 text-muted">
           <li>✓ Temanmu cukup klik link. Tanpa install, tanpa daftar.</li>
-          <li>✓ Muat sampai {capacity} orang, tiap orang minimal satu frame.</li>
+          <li>✓ Berapa pun orangnya boleh masuk. Frame-nya kurang? Ganti layout di langkah Foto, langsung berubah di HP semua orang.</li>
           <li>
             ✓ <b className="text-text">{role === 'host' ? 'Biarkan halaman ini terbuka' : 'Ruang ini aktif selama pembuatnya online'}</b>
-            {role === 'host' ? ' sampai semua selesai foto. Ruang tutup kalau tab ini ditutup.' : '.'}
+            {role === 'host'
+              ? ' sampai semua selesai foto. Ke-refresh nggak apa-apa, ruangnya nyambung lagi sendiri. Kalau tab-nya ketutup, buka lagi link ruang ini.'
+              : '.'}
           </li>
         </ul>
 
@@ -186,11 +186,13 @@ export function RoomCard({ empty }: { empty: number }) {
         <p className="font-bold">Ruang foto bareng</p>
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success">
           <span className={`size-2 rounded-full ${status === 'ready' ? 'animate-pulse bg-success' : 'bg-border-strong'}`} aria-hidden />
-          {status === 'ready' ? `${online} orang online` : status === 'host-left' ? 'ruang tutup' : 'menyambung…'}
+          {status === 'ready' ? `${online} orang online` : status === 'host-left' ? 'menunggu pembuat ruang' : 'menyambung…'}
         </span>
       </div>
       {status === 'host-left' ? (
-        <p className="mt-1 text-muted">Pembuat ruang sudah keluar. Foto yang sudah masuk tetap ada, kamu masih bisa hias dan unduh.</p>
+        <p className="mt-1 text-muted">
+          Pembuat ruang terputus. Begitu dia buka lagi, kamu otomatis tersambung. Foto yang sudah masuk tetap ada, kamu masih bisa hias dan unduh.
+        </p>
       ) : role === 'host' ? (
         <p className="mt-1 text-muted">{online < 2 ? 'Menunggu temanmu klik link…' : 'Frame yang mereka foto langsung muncul di sini.'} Jangan tutup halaman ini dulu.</p>
       ) : (

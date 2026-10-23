@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router'
 import { loginPath, useAuth } from '../lib/api'
+import { resumeRoom } from '../lib/room'
 import { restoreSession } from '../lib/stash'
 import { useUi } from '../ui'
 import { Curtain, useStepNav } from './Curtain'
@@ -20,12 +21,15 @@ export function AppShell() {
   // -1 di halaman di luar 4 langkah (mis. /app/masuk): tidak ada langkah yang disorot.
   const step = STEPS.findIndex((s) => s.path === pathname.replace(/\/$/, ''))
 
-  // Kembali dari login/keluar (pindah halaman): pulihkan foto sesi dulu sebelum halaman dirender,
-  // supaya halaman Hias/Unduh tidak mengira sesinya kosong.
+  // Kembali dari login/keluar (pindah halaman) atau halaman ke-refresh: pulihkan foto sesi dan ruang
+  // foto bareng dulu sebelum halaman dirender, supaya halaman Hias/Unduh tidak mengira sesinya kosong.
   const [restored, setRestored] = useState(false)
   useEffect(() => {
     void refresh()
-    restoreSession().finally(() => setRestored(true))
+    restoreSession()
+      .then(() => resumeRoom())
+      .catch(() => null)
+      .finally(() => setRestored(true))
   }, [refresh])
 
   return (

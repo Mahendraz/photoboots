@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CameraGate } from '../components/CameraGate'
+import { MiniStrip } from '../components/MiniStrip'
 import { useStepNav } from '../components/Curtain'
 import { PhotoThumb } from '../components/PhotoThumb'
-import { ASPECTS, layoutById } from '../lib/layouts'
+import { ASPECTS, LAYOUTS, layoutById, photoCount } from '../lib/layouts'
 import { beep, burst, fileToPhoto, openCamera, shutter, snap, stopStream, unlockAudio } from '../lib/media'
 import { RoomCard } from '../components/Room'
 import { claimSlots, displayName, memberColor, useRoom } from '../lib/room'
-import { newId, useBooth } from '../store'
+import { newId, renderInput, useBooth } from '../store'
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -86,6 +87,8 @@ export function CapturePage() {
   }, [settings.facing, camTry])
 
   useEffect(() => () => void (cancelRef.current = true), [])
+  // Layout diganti (di sini atau oleh pembuat ruang): pilihan frame lama mungkin sudah tidak ada.
+  useEffect(() => setSelected(null), [photos.length])
 
   const shoot = useCallback(
     async (targets: number[]) => {
@@ -298,6 +301,7 @@ export function CapturePage() {
               Kosongkan frame {selected + 1}
             </button>
           )}
+          <LayoutSwitch disabled={running} />
         </div>
 
         <div className="card p-4">
@@ -364,3 +368,91 @@ const FlipIcon = () => (
     <path d="M4 8h12l-3-3M20 16H8l3 3" />
   </svg>
 )
+
+/**
+ * Ganti layout langsung dari langkah Foto. Di ruang foto bareng hanya pembuat ruang yang bisa, dan layout barunya
+ * ikut berubah di HP semua orang: orangnya nambah, tinggal pilih layout yang framenya lebih banyak.
+ */
+function LayoutSwitch({ disabled }: { disabled: boolean }) {
+  const { design, photos, setLayout } = useBooth()
+  const { code, role, members, hostId, selfId, owners } = useRoom()
+  const live = code !== null
+  const guest = role === 'guest'
+  const online = members.filter((m) => m.online).length
+  const host = members.find((m) => m.id === hostId)
+  const free = owners.filter((o) => o === null).length
+  const noFrame = guest && !owners.includes(selfId) && free === 0
+  const short = live && !guest && online > photos.length
+  const [open, setOpen] = useState(short)
+  // Orang yang masuk melebihi jumlah frame: pilihan layout langsung dibuka.
+  useEffect(() => {
+    if (short) setOpen(true)
+  }, [short])
+
+  const thumbs = useMemo(
+    () =>
+      LAYOUTS.map((l) => ({
+        layout: l,
+        count: photoCount(l, design.photoMode),
+        input: renderInput({
+          design: { ...design, layoutId: l.id, aspect: l.id === design.layoutId ? design.aspect : l.defaultAspect, overlays: [] },
+          photos: [],
+        }),
+      })),
+    // Thumbnail cukup mengikuti template & bentuk foto yang sedang dipilih.
+    [design.templateId, design.templateRightId, design.layoutId, design.aspect, design.format, design.photoMode],
+  )
+
+  if (guest)
+    return (
+      <p className={`mt-3 rounded-xl p-3 text-xs ${noFrame ? 'bg-warning-subtle text-warning' : 'bg-bg-subtle text-muted'}`}>
+        {noFrame
+          ? `Semua frame sudah ada yang punya. Minta ${displayName(host)} ganti layout yang framenya lebih banyak, nanti frame barunya muncul di sini.`
+          : `Layout diatur ${displayName(host)}. Frame kurang? Minta dia ganti layout.`}
+      </p>
+    )
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <button className="flex w-full items-center justify-between text-sm font-bold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        Ganti layout <span className="text-xs font-normal text-muted">{open ? 'tutup' : `${layoutById(design.layoutId).name} · ${photos.length} frame`}</span>
+      </button>
+      {short && (
+        <p className="mt-2 rounded-xl bg-warning-subtle p-2.5 text-xs text-warning">
+          Ada {online} orang di ruang, frame-nya cuma {photos.length}. Pilih layout yang framenya lebih banyak biar semua kebagian.
+        </p>
+      )}
+      {open && (
+        <>
+          <div className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1">
+            {thumbs.map(({ layout: l, count, input }) => {
+              const active = l.id === design.layoutId
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => setLayout(l.id)}
+                  disabled={disabled}
+                  aria-pressed={active}
+                  className={`flex w-20 shrink-0 flex-col items-center gap-1 rounded-xl border-2 p-1.5 text-center ${
+                    active ? 'border-accent bg-accent-subtle' : 'border-border bg-surface hover:border-border-strong'
+                  }`}
+                >
+                  <span className="flex h-16 w-full items-center justify-center">
+                    <MiniStrip input={input} fit={64} className="max-h-full max-w-full rounded-[2px] shadow-[0_1px_4px_rgba(0,0,0,0.2)]" />
+                  </span>
+                  <span className="text-[11px] leading-tight font-bold">{l.name}</span>
+                  <span className={`text-[10px] leading-tight ${live && count < online ? 'text-warning' : 'text-muted'}`}>{count} frame</span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {live
+              ? 'Langsung berubah di HP semua orang. Foto yang sudah masuk tetap aman; kalau framenya berkurang, foto sisanya kembali saat frame ditambah.'
+              : 'Foto yang sudah diambil tetap aman; kalau framenya berkurang, foto sisanya kembali saat frame ditambah.'}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}

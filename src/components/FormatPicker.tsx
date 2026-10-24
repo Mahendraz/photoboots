@@ -9,16 +9,33 @@ export function FormatPicker({ value, onChange }: { value: FormatId; onChange: (
   return (
     <div className="@container">
       <div className="grid grid-cols-2 gap-2 @3xl:grid-cols-4" role="radiogroup" aria-label="Ukuran hasil">
-        {FORMAT_IDS.map((id) => {
+        {FORMAT_IDS.map((id, index) => {
           const f = FORMATS[id]
           const [w, h] = SHAPE[id]
           const active = value === id
           return (
             <button
               key={id}
+              type="button"
               role="radio"
               aria-checked={active}
+              tabIndex={active ? 0 : -1}
               onClick={() => onChange(id)}
+              onKeyDown={(e) => {
+                const next = e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                  ? (index + 1) % FORMAT_IDS.length
+                  : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                    ? (index - 1 + FORMAT_IDS.length) % FORMAT_IDS.length
+                    : e.key === 'Home'
+                      ? 0
+                      : e.key === 'End'
+                        ? FORMAT_IDS.length - 1
+                        : index
+                if (next === index) return
+                e.preventDefault()
+                onChange(FORMAT_IDS[next])
+                e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
+              }}
               className={`flex min-w-0 items-center gap-3 rounded-2xl border-2 p-2.5 text-left ${active ? 'border-accent bg-accent-subtle' : 'border-border bg-surface hover:border-border-strong'}`}
             >
               <span className="grid size-7 shrink-0 place-items-center">

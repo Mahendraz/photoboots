@@ -1,6 +1,6 @@
 # Wireframe — InWebBooth
 
-Terakhir diubah: 2026-10-23 · Peta route dan isi halaman: `docs/sitemap.md` · Desain visual: `docs/design.md` (bukan bagian dokumen ini)
+Terakhir diubah: 2026-10-24 · Peta route dan isi halaman: `docs/sitemap.md` · Desain visual: `docs/design.md` (bukan bagian dokumen ini)
 
 Shell: semua halaman `/app/*` ada di dalam `AppShell` (tinggi layar penuh: header tetap + `<main>` yang memuat halaman).
 Tirai antar langkah (`Curtain`) menutup `<main>` saat pindah halaman.
@@ -13,49 +13,44 @@ Tirai antar langkah (`Curtain`) menutup `<main>` saat pindah halaman.
 │          → AppShell.tsx · StepBar.tsx · Logo.tsx              │
 │  ▸ garis tergambar ke langkah berikut, angka jadi centang      │
 ├──────────────────────────────────────────────────────────────┤
-│ MAIN (relative) — <Outlet/> halaman + <Curtain/>               │
+│ MAIN (relative) — <Outlet/> halaman + recovery + <Curtain/>   │
 │  ▸ tirai 7 panel turun dari sisi yang diklik, logo berputar    │
 │    → Curtain.tsx                                               │
 └──────────────────────────────────────────────────────────────┘
  + AccountSheet · InviteSheet · EstafetStartSheet (lihat Sheet)
 Mobile: logo jadi ikon saja; label langkah non-aktif disembunyikan;
         tombol akun menampilkan sisa kuota "n/5" (atau "Masuk").
+Recovery lokal/jaringan tidak menahan seluruh shell; rute tak dikenal menampilkan 404
+dengan [Kembali ke photobooth →]. `/` tetap redirect ke `/app`.
 ```
 
 ## /app — Langkah 1 · Layout
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ H1 "Mau strip yang mana?" · 1 kalimat petunjuk                 │
+│ H1 "Bikin kenangan dalam satu strip." · preview hasil         │
 │ [banner "Kamu lagi di ruang…" + [Keluar ruang]]  (kalau ada)   │
 ├──────────────────────────────────────────────────────────────┤
-│ UKURAN HASIL — FormatPicker, grid 2 kolom (4 kolom ≥ lebar     │
-│   wadah 3xl): Cetak · Story/Reels/TikTok · Feed IG · Kotak     │
-│   → components/FormatPicker.tsx                                │
+│ LAYOUT — rekomendasi + MiniStrip + nama/desc                   │
+│   kategori: Rekomendasi · Strip · Grid · Polaroid · Semua     │
+│   11 layout tetap dapat diakses; pilihan aktif jelas           │
+│   → components/MiniStrip.tsx                                    │
 ├──────────────────────────────────────────────────────────────┤
-│ LAYOUT — grid 3/4/6 kolom, 11 kartu MiniStrip + nama + desc    │
-│   (terkunci kecuali yang aktif saat tamu/estafet)              │
-│   → components/MiniStrip.tsx                                   │
+│ SESUAIKAN (buka/tutup; pengaturan awal tidak wajib diubah)      │
+│   format · 5 rasio · kiri/kanan bila relevan · template frame  │
+│   → FormatPicker.tsx · FramePicker.tsx                         │
 ├──────────────────────────────────────────────────────────────┤
-│ BENTUK FOTO — 5 pil │ STRIP KIRI & KANAN — kembar/beda        │
-│   (kolom kanan hanya untuk layout Kiri–Kanan)  grid 2 kolom    │
-├──────────────────────────────────────────────────────────────┤
-│ TEMPLATE FRAME — FramePicker: pil kategori (scroll) + grid     │
-│   thumbnail 4/6/8 kolom; toggle Sama/Kiri/Kanan (2 strip)      │
-│   → components/FramePicker.tsx                                 │
-├──────────────────────────────────────────────────────────────┤
-│ FOTO BARENG TEMAN DARI JAUH (kotak abu)                        │
-│   · [Ajak lewat link] → openInvite → /app/foto                 │
-│   · [Mulai estafet] → EstafetStartSheet                        │
-│   · PatunganGuide (panduan bergambar 4 langkah + contoh)       │
-│   · [Buka berkas dari teman] (input file .txt) + pesan galat   │
-│   → components/Room.tsx · Estafet.tsx · PatunganGuide.tsx      │
+│ FOTO BARENG DARI JAUH? (entry point ringkas)                    │
+│   · [Pilih cara foto bareng] → live room / estafet              │
+│   · Patungan file sebagai alternatif/fallback                   │
+│   · status error + coba lagi                                   │
+│   → Room.tsx · Estafet.tsx · PatunganGuide.tsx                 │
 ├──────────────────────────────────────────────────────────────┤
 │ BAR BAWAH TETAP — "<Layout> · n foto · ukuran"  [Mulai foto →] │
 └──────────────────────────────────────────────────────────────┘
-Mobile: grid layout 3 kolom, bar bawah tetap menyesuaikan safe-area;
-        kolom "Bentuk foto" dan "Kiri & kanan" tumpuk jadi satu kolom.
-State: openFile gagal = teks merah di bawah tombol berkas; opening = tombol "Menyiapkan…".
+Mobile: rekomendasi dan CTA terlihat tanpa menelusuri semua opsi;
+        sticky bar menghormati safe area; konfigurasi tidak menutup aksi utama.
+State: semua 11 layout dapat dipilih; kolaborasi punya retry dan patungan fallback.
 ```
 
 ## /app/foto — Langkah 2 · Foto
@@ -65,8 +60,9 @@ State: openFile gagal = teks merah di bawah tombol berkas; opening = tombol "Men
 │ KAMERA (kiri, flex-1)          │ PANEL SAMPING (lg: 320px)     │
 │  video + rasio bentuk foto     │  KARTU FRAME "Frame n/total"  │
 │  · CameraGate (izin/galat)     │   badge bareng/estafet/patung.│
-│  · angka hitung mundur besar   │   deret thumbnail frame       │
-│  · kilat putih saat jepret     │   (warna + nama pemilik, "live│
+│  · angka hitung mundur besar   │   frame terakhir + retake     │
+│  · kilat putih saat jepret     │   deret thumbnail frame       │
+│  · pil "● n/total" saat jalan  │   (warna + nama pemilik, "live│
 │  · pil "● n/total" saat jalan  │   "/"teman", % transfer)      │
 │  → pages/Capture.tsx           │   [Kosongkan frame n]         │
 │    components/CameraGate.tsx   │   GANTI LAYOUT (LayoutSwitch) │
@@ -77,12 +73,15 @@ State: openFile gagal = teks merah di bawah tombol berkas; opening = tombol "Men
 │                                │  KARTU RUANG / ESTAFET        │
 │                                │   RoomCard | EstafetCard      │
 │                                │  [Lanjut hias →] (n kosong)   │
-│                                │  "<layout> · foto tidak       │
-│                                │   pernah diunggah ke server"  │
+│                                │  "Solo diproses di perangkat.│
+│                                │   Estafet menyimpan foto       │
+│                                │   terenkripsi sementara."      │
 └───────────────────────────────┴──────────────────────────────┘
-Mobile/tablet: kamera di atas, panel di bawah (satu kolom); deret frame jadi
-               satu baris geser horizontal.
-State: kamera gagal = CameraGate tampil pesan + [Upload] [Coba lagi];
+Mobile/tablet: video dan shutter di atas, lalu progress/frame terakhir;
+               kontrol sekunder bisa dilipat, lanjut hias mudah dijangkau.
+               Desktop mempertahankan kamera + sidebar.
+State: shutter aktif sesudah video memutar frame valid; kamera gagal/background
+       = CameraGate tampil status spesifik + [Upload] [Coba lagi]; burst batal tidak menyimpan foto;
        frame milik orang lain tidak bisa dipilih (catatan "Frame n punya <nama>");
        tamu/estafet: LayoutSwitch diganti catatan "layout diatur pembuat ruang";
        host kelebihan orang: LayoutSwitch terbuka sendiri + peringatan kuning.
@@ -98,7 +97,7 @@ Redirect ke `/app/foto` kalau belum ada foto.
 │  StripEditor: strip hasil + stiker     │  PillTabs 5 tab:      │
 │  yang bisa digeser, dicubit, diputar   │   Frame·Filter·Stiker │
 │  → components/StripEditor.tsx          │   ·Teks·Atur          │
-│ TOOLBAR STIKER TERPILIH (muncul di     │  ISI TAB (scroll):    │
+│ TOOLBAR OBJEK TERPILIH (di bawah strip)│  ISI TAB (scroll):    │
 │  bawah strip, scroll horizontal):      │   Frame  = FramePicker│
 │  − + ⟲ ⟳ [Ke depan] [Ke belakang]      │   Filter = grid 4–5   │
 │  [Hapus]                               │     kolom, thumbnail  │
@@ -119,12 +118,13 @@ Redirect ke `/app/foto` kalau belum ada foto.
 │                                        │   unduh →]            │
 └───────────────────────────────────────┴──────────────────────┘
 → pages/Edit.tsx · components/PillTabs.tsx · StripEditor.tsx · FramePicker.tsx
-Mobile: editor di atas, panel alat di bawah dengan tinggi tetap 46dvh (toolbar
-        stiker ditaruh di bawah strip, bukan di panel, supaya daftar stiker tidak tertutup).
-        Strip diperbesar mengikuti lebar kolom editor (kolom ini min-w-0).
+Mobile: editor di atas, panel alat dapat diperbesar/diciutkan; toolbar objek tetap
+        di bawah strip. Strip mendapat ruang cukup pada ponsel pendek dan dapat dipindah,
+        dicubit, diputar atau diatur lewat keyboard.
 State: tab awal = Stiker; Teks berubah jadi "Edit teks yang dipilih" saat teks bebas dipilih;
        "Mode Beda butuh foto lebih banyak" muncul di tab Atur kalau ada frame kosong;
-       tamu/estafet: pilihan kembar/beda terkunci.
+       tamu/estafet: pilihan kembar/beda terkunci; perubahan yang membuang overlay meminta konfirmasi;
+       undo/redo berbatas; hubungan tab/panel dan nama preview aksesibel.
 ```
 
 ## /app/unduh — Langkah 4 · Unduh
@@ -134,8 +134,8 @@ Redirect ke `/app/foto` kalau belum ada foto.
 ```
 ┌───────────────────────────────┬──────────────────────────────┐
 │ PRATINJAU (flex-1)             │ PANEL (lg: 384px)             │
-│  MiniStrip hasil akhir,        │  KARTU HASIL                  │
-│  skala mengikuti kotak         │   H1 "Strip-mu sudah jadi!"   │
+│  MiniStrip hasil akhir         │  KARTU HASIL                  │
+│                                │   H1 "Yeay, strip-mu sudah jadi!"│
 │  → pages/Result.tsx            │   QuotaBar (login) | ajakan   │
 │                                │   masuk (belum login)         │
 │                                │   peringatan watermark        │
@@ -144,19 +144,29 @@ Redirect ke `/app/foto` kalau belum ada foto.
 │                                │   [Unduh JPG] [Unduh PNG]     │
 │                                │   [Unduh GIF live ✨] (ada    │
 │                                │    foto live)                 │
-│                                │   [Bagikan / simpan ke galeri]│
+│                                │   [Bagikan] + fallback [Unduh]│
 │                                │   galat · catatan cetak       │
 │                                │  KARTU RUANG (RoomCard)       │
-│                                │  TEASER "Segera: simpan &     │
-│                                │   bagikan lewat link/QR"      │
 │                                │  [← Hias lagi] [Foto lagi]    │
 └───────────────────────────────┴──────────────────────────────┘
 → components/SparkleButton.tsx (percikan saat selesai) · LoginSheet.tsx (QuotaBar)
-Mobile: pratinjau di atas (min 45dvh), panel di bawah.
+Mobile: preview di atas; tombol unduh utama ikut terlihat di sticky/safe-area action
+        yang tidak menutupi strip. Alternatif format dan kuota tetap jelas.
 State: belum login, tekan Unduh → /app/masuk?returnTo=/app/unduh;
-       tombol "Membuat…" / "Membuat GIF… n%"; 401 → ke halaman masuk;
+       tombol "Membuat…" / "Membuat GIF… n%"; gagal render tidak memakai kuota;
+       share batal tidak menjadi error, kegagalan lain tampil dengan retry;
        "Foto lagi" keluar dari ruang dan mengosongkan foto.
 ```
+
+## Rute tak dikenal — 404 dalam shell
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Ilustrasi kecil · H1 "Halaman ini tidak ditemukan"            │
+│ Penjelasan singkat · [Kembali ke photobooth →]                 │
+└──────────────────────────────────────────────────────────────┘
+```
+`/` tetap redirect ke `/app`; hanya path lain yang tak dikenal memakai 404.
 
 ## /app/masuk — Login
 
@@ -166,7 +176,7 @@ State: belum login, tekan Unduh → /app/masuk?returnTo=/app/unduh;
 │  senang di tombol utama)  → components/Mascot.tsx              │
 │ ┌──────────────────────────────────────────────────────────┐ │
 │ │ H1 "Masuk ke InWebBooth" / "Buat akun…" / "Reset kata     │ │
-│ │ sandi kamu" · 1 kalimat jelasan kuota                     │ │
+│ │ sandi kamu" · alasan login perlu sebelum mengunduh        │ │
 │ │ [tab Masuk | Buat akun]                                   │ │
 │ │ [Lanjutkan dengan Google]                                 │ │
 │ │ ── atau gunakan email kamu ──                             │ │
@@ -179,8 +189,9 @@ State: belum login, tekan Unduh → /app/masuk?returnTo=/app/unduh;
 └──────────────────────────────────────────────────────────────┘
 → pages/Login.tsx · lib/api.ts
 Mobile: kartu max-w-sm di tengah, sama di semua lebar.
-State: "Memuat…" sebelum /api/me; "Login belum dikonfigurasi di server." kalau
-       Auth0 mati dan bukan dev; galat dari callback lewat ?galat=; sudah login → redirect.
+State: "Memuat…" sebelum /api/me; status simpan/pulihkan foto dan retry;
+       "Login belum dikonfigurasi di server." kalau Auth0 mati dan bukan dev;
+       galat dari callback lewat ?galat=; sudah login → redirect.
 ```
 
 ## /app/bareng#kode — Undangan foto bareng
@@ -195,10 +206,9 @@ State: "Memuat…" sebelum /api/me; "Login belum dikonfigurasi di server." kalau
 │  input "Namamu"                                                │
 │  (host-left) kotak biru "lagi keluar sebentar…"                │
 │  (frame penuh) kotak kuning "minta host ganti layout"          │
-│  [Masuk & foto →] · "Foto dikirim langsung… tidak disimpan"    │
-│ KARTU MENYAMBUNG (selain itu):                                 │
-│  spinner · "Menyambung ke ruang foto…"                         │
-│  (lambat) penyebab + [Coba lagi] [Pakai berkas patungan]       │
+│  [Masuk & foto →] · status transfer dan kepemilikan frame       │
+│ KARTU STATUS (connecting/offline/expired/full):                 │
+│  alasan jelas + [Coba lagi] [Pakai berkas patungan]             │
 └──────────────────────────────────────────────────────────────┘
 → pages/Join.tsx · components/Room.tsx (MemberChip)
 Mobile: sama (satu kolom).
@@ -209,7 +219,7 @@ Mobile: sama (satu kolom).
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ (tengah vertikal, max-w-md)                                    │
-│ MEMUAT: spinner "Membuka estafet foto…"                        │
+│ MEMUAT / OFFLINE / ERROR: status jelas + [Coba lagi]            │
 │ BERAKHIR (gone/expired/bukan estafet): "Estafet ini sudah      │
 │   berakhir" + [Bikin strip sendiri] → /app                     │
 │ KARTU ESTAFET:                                                 │
@@ -220,7 +230,7 @@ Mobile: sama (satu kolom).
 │  input "Namamu" (hilang kalau strip penuh)                     │
 │  EstafetWarning (link 4 jam, sampai jam …)                     │
 │  [Isi bagianku → | Lihat strip-nya → | Lihat, hias & unduh →]  │
-│  "Sisa … sebelum semua foto dihapus."                          │
+│  "Foto terenkripsi sementara; sisa … sebelum dihapus."         │
 └──────────────────────────────────────────────────────────────┘
 → pages/Estafet.tsx · components/Estafet.tsx
 Mobile: sama (satu kolom). Tombol utama ke /app/hias kalau strip penuh, selain itu /app/foto.
@@ -229,6 +239,7 @@ Mobile: sama (satu kolom). Tombol utama ke /app/hias kalau strip penuh, selain i
 ## Sheet global (dialog)
 
 `Sheet` = lembar bawah di HP, dialog tengah di ≥ sm (`src/components/Sheet.tsx`). Tutup lewat klik latar atau Esc.
+Fokus masuk dan terkurung di dialog; saat ditutup fokus kembali ke pemicu.
 
 ```
 AccountSheet "Akun kamu"          → components/LoginSheet.tsx
@@ -236,7 +247,7 @@ AccountSheet "Akun kamu"          → components/LoginSheet.tsx
 
 InviteSheet "Ajak teman foto bareng"   → components/Room.tsx
   input nama · link ruang + [Salin] · [Kirim lewat WhatsApp] · [Bagikan ke aplikasi lain]
-  · daftar 3 poin jaminan · "Di ruang sekarang" chip anggota
+  · daftar 3 poin jaminan (kelancaran bergantung perangkat/koneksi) · "Di ruang sekarang" chip anggota
   · (ada foto) "Kirim berkas patungan saja"
 
 EstafetStartSheet "Mulai estafet foto"  → components/Estafet.tsx

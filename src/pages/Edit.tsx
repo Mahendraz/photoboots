@@ -33,9 +33,10 @@ const COLORS = ['#1f1a17', '#ffffff', '#ff4f6d', '#ffd166', '#7bdff2', '#9be8c6'
 export function EditPage() {
   const stepTo = useStepNav()
   const state = useBooth()
-  const { design, photos, addOverlay, updateOverlay, removeOverlay, moveOverlay } = state
+  const { design, photos, addOverlay, updateOverlay, removeOverlay, moveOverlay, undo, redo, canUndo, canRedo, beginOverlayTransaction, endOverlayTransaction } = state
   const [tab, setTab] = useState<Tab>('stiker')
   const [selected, setSelected] = useState<string | null>(null)
+  const [compactPanel, setCompactPanel] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const input = useMemo(() => renderInput({ design, photos }), [design, photos])
 
@@ -56,7 +57,15 @@ export function EditPage() {
           mengukur kolom yang lebih lebar lalu memperbesar strip lagi, terus tanpa henti. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="relative min-h-0 min-w-0 flex-1 bg-bg-subtle lg:p-4">
-          <StripEditor input={input} selected={selected} onSelect={setSelected} onChange={updateOverlay} onRemove={(id) => (removeOverlay(id), setSelected(null))} />
+          <StripEditor
+            input={input}
+            selected={selected}
+            onSelect={setSelected}
+            onChange={updateOverlay}
+            onRemove={(id) => (removeOverlay(id), setSelected(null))}
+            onBeginGesture={beginOverlayTransaction}
+            onEndGesture={endOverlayTransaction}
+          />
         </div>
         {/* Toolbar stiker terpilih menempel di bawah strip, bukan di panel alat: di HP panel cuma 46dvh dan
             toolbar di sana menutup daftar stiker sampai tinggal satu baris. */}
@@ -87,7 +96,18 @@ export function EditPage() {
         )}
       </div>
 
-      <aside className="flex h-[46dvh] shrink-0 flex-col border-t border-border bg-surface lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l">
+      <aside className={`flex ${compactPanel ? 'h-[34dvh]' : 'h-[46dvh]'} shrink-0 flex-col border-t border-border bg-surface lg:h-full lg:w-[400px] lg:border-t-0 lg:border-l`}>
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+          <button type="button" className="btn min-h-10 flex-1 px-2 text-xs" disabled={!canUndo} onClick={undo} aria-label="Urungkan perubahan desain">
+            ↶ Urungkan
+          </button>
+          <button type="button" className="btn min-h-10 flex-1 px-2 text-xs" disabled={!canRedo} onClick={redo} aria-label="Ulangi perubahan desain">
+            Ulangi ↷
+          </button>
+          <button type="button" className="btn min-h-10 px-2 text-xs lg:hidden" onClick={() => setCompactPanel((v) => !v)} aria-expanded={!compactPanel}>
+            {compactPanel ? 'Perluas alat' : 'Lihat strip'}
+          </button>
+        </div>
         <PillTabs tabs={TABS} value={tab} onChange={setTab} label="Alat hias" panel={panelRef} />
 
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3">
@@ -274,7 +294,7 @@ function ArrangePanel() {
           Ganti layout
         </button>
         {design.overlays.length > 0 && (
-          <button className="btn text-sm" onClick={() => setDesign({ overlays: [] })}>
+          <button className="btn text-sm" onClick={() => window.confirm('Hapus semua stiker dan teks? Perubahan ini bisa dipulihkan dengan Urungkan.') && setDesign({ overlays: [] })}>
             Hapus semua stiker
           </button>
         )}

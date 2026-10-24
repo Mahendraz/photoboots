@@ -110,7 +110,7 @@ export function InviteSheet() {
 
         <ul className="space-y-1.5 rounded-xl bg-bg-subtle p-3 text-muted">
           <li>✓ Temanmu cukup klik link. Tanpa install, tanpa daftar.</li>
-          <li>✓ Berapa pun orangnya boleh masuk. Frame-nya kurang? Ganti layout di langkah Foto, langsung berubah di HP semua orang.</li>
+          <li>✓ Ajak teman dari HP masing-masing. Kelancaran bergantung pada perangkat dan koneksi; kalau frame kurang, ganti layout di langkah Foto agar berubah di HP semua orang.</li>
           <li>
             ✓ <b className="text-text">{role === 'host' ? 'Biarkan halaman ini terbuka' : 'Ruang ini aktif selama pembuatnya online'}</b>
             {role === 'host'

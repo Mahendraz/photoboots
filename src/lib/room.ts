@@ -3,7 +3,7 @@ import type { JsonValue, Room } from 'trystero'
 import { layoutById } from './layouts'
 import type { Photo } from './render'
 import { decodePhotoBytes, encodePhotoBytes } from './photoCodec'
-import { leaveRelay, relayClaim } from './relay'
+import { leaveRelay, relayClaim, relayRelease } from './relay'
 import { dropBox, getBox, putBox } from './roomBox'
 import { idbDel, idbGet, idbPut, packPhotos, unpackPhotos, type StoredPhoto } from './stash'
 import { useBooth, type Design } from '../store'
@@ -68,7 +68,7 @@ export type RoomStatus =
   /** Estafet: lewat 4 jam / dihapus pembuatnya. Foto yang sudah ada di HP ini tetap bisa dihias & diunduh. */
   | 'expired'
 
-interface RoomState {
+export interface RoomState {
   code: string | null
   /** `live`: ruang langsung antar-HP. `estafet`: gantian lewat link, foto dititipkan terenkripsi (relay.ts). */
   mode: 'live' | 'estafet'
@@ -184,6 +184,7 @@ interface Wire {
   state: (data: RoomSnapshot) => void
   claim: (slots: number[]) => Promise<number[]>
   release: (slot: number) => void
+  unclaim: (slot: number) => void
   photo: (buf: ArrayBuffer, meta: PhotoMeta, to?: string | string[]) => Promise<void>
 }
 
@@ -338,6 +339,16 @@ function hostOnRelease(slot: number, key: string) {
   ids[slot] = null
   patch({ owners })
   applyPhoto(slot, null)
+  hostBroadcast()
+}
+
+function hostOnUnclaim(slot: number, key: string) {
+  const s = useRoom.getState()
+  if (!Number.isInteger(slot) || slot < 0 || slot >= s.owners.length || s.owners[slot] !== key) return
+  if (ids[slot] || useBooth.getState().photos[slot]) return
+  const owners = s.owners.slice()
+  owners[slot] = null
+  patch({ owners })
   hostBroadcast()
 }
 
@@ -505,6 +516,7 @@ async function connect(code: string, role: 'host' | 'guest', name: string) {
   const state = room.makeAction<JsonValue>('state')
   const claim = room.makeAction<number[], number[]>('claim', { kind: 'request' })
   const release = room.makeAction<number>('release')
+  const unclaim = room.makeAction<number>('unclaim')
   const photo = room.makeAction<ArrayBuffer>('photo')
 
   hostPeer = null
@@ -524,6 +536,9 @@ async function connect(code: string, role: 'host' | 'guest', name: string) {
     },
     release: (slot) => {
       if (hostPeer) void release.send(slot, { target: hostPeer })
+    },
+    unclaim: (slot) => {
+      if (hostPeer) void unclaim.send(slot, { target: hostPeer })
     },
     photo: (buf, meta, to) => photo.send(buf, { target: to ?? null, metadata: meta as unknown as JsonValue }),
   }
@@ -550,6 +565,10 @@ async function connect(code: string, role: 'host' | 'guest', name: string) {
     release.onMessage = (slot, { peerId }) => {
       const k = peerKey.get(peerId)
       if (k) hostOnRelease(Number(slot), k)
+    }
+    unclaim.onMessage = (slot, { peerId }) => {
+      const k = peerKey.get(peerId)
+      if (k) hostOnUnclaim(Number(slot), k)
     }
     photo.onMessage = (buf, { peerId, metadata }) => {
       const k = peerKey.get(peerId)
@@ -793,6 +812,46 @@ export async function claimSlots(slots: number[]) {
   return Array.isArray(granted) ? granted : []
 }
 
+/** Lepas hanya frame kosong yang masih dipesan sendiri setelah pemotretan dibatalkan/gagal. */
+export function releaseSlots(slots: number[]) {
+  const state = useRoom.getState()
+  if (!state.code) return
+  const photos = useBooth.getState().photos
+  const candidates = [...new Set(slots)].filter((slot) => Number.isInteger(slot) && slot >= 0 && slot < state.owners.length && !photos[slot])
+  if (!candidates.length) return
+  if (state.mode === 'estafet') {
+    relayRelease(candidates)
+    return
+  }
+  if (state.role === 'host') {
+    const owners = state.owners.slice()
+    let changed = false
+    for (const slot of candidates) {
+      if (owners[slot] !== state.selfId || ids[slot]) continue
+      owners[slot] = null
+      changed = true
+    }
+    if (changed) {
+      patch({ owners })
+      hostBroadcast()
+    }
+    return
+  }
+  if (state.status === 'host-left') {
+    const owners = state.owners.slice()
+    candidates.forEach((slot) => {
+      if (owners[slot] === state.selfId) owners[slot] = null
+    })
+    patch({ owners })
+    return
+  }
+  if (state.status === 'ready' && wire) {
+    candidates.forEach((slot) => {
+      if (state.owners[slot] === state.selfId) wire?.unclaim(slot)
+    })
+  }
+}
+
 export async function leaveRoom() {
   const { code, role, mode } = useRoom.getState()
   if (mode === 'estafet') {
@@ -839,6 +898,8 @@ interface RoomStash {
   ids: (string | null)[]
   design: Design
   photos: (StoredPhoto | null)[]
+  /** Optional so room snapshots written by older versions still restore. */
+  sparePhotos?: (StoredPhoto | null)[]
   stripId: string
   patunganFrom: string | null
   /** Kunci tulis titipan ruang (pembuat ruang). */
@@ -903,7 +964,7 @@ async function save() {
   if (!s.code || !s.role || s.mode !== 'live') return
   const b = useBooth.getState()
   try {
-    const photos = await packPhotos(b.photos)
+    const [photos, sparePhotos] = await Promise.all([packPhotos(b.photos), packPhotos(b.sparePhotos)])
     if (useRoom.getState().code !== s.code) return
     const data: RoomStash = {
       at: Date.now(),
@@ -916,6 +977,7 @@ async function save() {
       ids,
       design: b.design,
       photos,
+      sparePhotos,
       stripId: b.stripId,
       patunganFrom: b.patunganFrom,
       writeKey,
@@ -935,11 +997,13 @@ export const resumeRoom = (code?: string) => serial(() => resumeNow(code))
 async function resumeNow(code?: string) {
   if (inRoom()) return false
   const remembered = rememberedRoom()
-  let stash = await idbGet<RoomStash>(STASH_KEY).catch(() => undefined)
-  if (stash && Date.now() - stash.at > STASH_MAX_AGE) {
-    void idbDel(STASH_KEY).catch(() => null)
-    stash = undefined
+  let stash: RoomStash | undefined
+  try {
+    stash = await idbGet<RoomStash>(STASH_KEY)
+  } catch {
+    return false
   }
+  if (stash && Date.now() - stash.at > STASH_MAX_AGE) stash = undefined
   const target = code ?? remembered?.code
   if (!target) return false
   if (stash?.code !== target) stash = undefined
@@ -947,16 +1011,21 @@ async function resumeNow(code?: string) {
   if (!role) return false
 
   if (stash) {
-    const photos = await unpackPhotos(stash.photos).catch(() => null)
-    if (inRoom()) return false
-    if (photos) {
+    try {
+      const [photos, sparePhotos] = await Promise.all([
+        unpackPhotos(stash.photos),
+        unpackPhotos(stash.sparePhotos ?? []),
+      ])
+      if (inRoom()) return false
       applying = true
       try {
-        useBooth.getState().restore(stash.design, photos, stash.stripId, stash.patunganFrom)
+        useBooth.getState().restore(stash.design, photos, stash.stripId, stash.patunganFrom, sparePhotos)
       } finally {
         applying = false
       }
-    } else stash = undefined
+    } catch {
+      return false
+    }
   }
 
   // Selama membaca simpanan, halaman bisa sudah masuk ruang lain (mis. link ruang baru dibuka).

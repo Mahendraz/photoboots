@@ -7,22 +7,45 @@ import { ASPECTS, LAYOUTS, layoutById, photoCount } from '../lib/layouts'
 import { beep, burst, fileToPhoto, openCamera, shutter, snap, stopStream, unlockAudio } from '../lib/media'
 import { EstafetCard } from '../components/Estafet'
 import { RoomCard } from '../components/Room'
-import { claimSlots, displayName, memberColor, useRoom } from '../lib/room'
+import { claimSlots, displayName, memberColor, releaseSlots, useRoom } from '../lib/room'
 import { newId, renderInput, useBooth } from '../store'
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+function waitForVideoFrame(video: HTMLVideoElement, timeoutMs = 5000) {
+  return new Promise<void>((resolve, reject) => {
+    let timeout = 0
+    const cleanup = () => {
+      window.clearTimeout(timeout)
+      video.removeEventListener('loadeddata', check)
+      video.removeEventListener('resize', check)
+    }
+    const check = () => {
+      if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return
+      cleanup()
+      resolve()
+    }
+    video.addEventListener('loadeddata', check)
+    video.addEventListener('resize', check)
+    timeout = window.setTimeout(() => {
+      cleanup()
+      reject(new DOMException('Kamera tidak menghasilkan frame video.', 'NotReadableError'))
+    }, timeoutMs)
+    check()
+  })
+}
 
 export function CapturePage() {
   const stepTo = useStepNav()
   const { design, settings, photos, setPhoto, setSettings, patunganFrom } = useBooth()
   const room = useRoom()
   const live = room.code !== null
-  const layout = layoutById(design.layoutId)
   const ratio = ASPECTS[design.aspect].ratio
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const cancelRef = useRef(false)
+  const shootingRef = useRef(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [camError, setCamError] = useState<string | null>(null)
@@ -64,23 +87,29 @@ export function CapturePage() {
     }
     openCamera(settings.facing)
       .then(async (stream) => {
-        if (!alive) return stopStream(stream)
+        if (!alive || document.hidden) return stopStream(stream)
         streamRef.current = stream
         const v = videoRef.current
-        if (v) {
-          v.srcObject = stream
-          await v.play().catch(() => null)
-          setCamReady(true)
-        }
+        if (!v) throw new DOMException('Pratinjau kamera tidak tersedia.', 'NotReadableError')
+        v.srcObject = stream
+        await v.play()
+        await waitForVideoFrame(v)
+        if (!alive || document.hidden) return stopStream(stream)
+        setCamReady(true)
       })
       .catch((e: DOMException) => {
         if (!alive) return
+        stopStream(streamRef.current)
+        streamRef.current = null
+        setCamReady(false)
         setCamError(
           e.name === 'NotAllowedError'
             ? 'Izin kamera ditolak. Izinkan kamera di pengaturan browser, atau upload foto saja.'
             : e.name === 'NotFoundError'
               ? 'Kamera tidak ditemukan. Kamu tetap bisa upload foto.'
-              : 'Kamera tidak bisa dibuka (mungkin sedang dipakai aplikasi lain). Kamu tetap bisa upload foto.',
+              : e.name === 'NotReadableError'
+                ? 'Kamera belum menghasilkan gambar. Coba lagi atau upload foto dari galeri.'
+                : 'Kamera tidak bisa dibuka (mungkin sedang dipakai aplikasi lain). Kamu tetap bisa upload foto.',
         )
       })
     return () => {
@@ -90,6 +119,22 @@ export function CapturePage() {
     }
   }, [settings.facing, camTry])
 
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelRef.current = true
+        stopStream(streamRef.current)
+        streamRef.current = null
+        setCamReady(false)
+        setCamError('Kamera dijeda saat tab tidak terlihat. Kembali ke tab untuk membukanya lagi.')
+      } else {
+        setCamTry((n) => n + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   useEffect(() => () => void (cancelRef.current = true), [])
   // Layout diganti (di sini atau oleh pembuat ruang): pilihan frame lama mungkin sudah tidak ada.
   useEffect(() => setSelected(null), [photos.length])
@@ -97,16 +142,21 @@ export function CapturePage() {
   const shoot = useCallback(
     async (targets: number[]) => {
       const v = videoRef.current
-      if (!v || !camReady || !targets.length) return
+      if (!v || !camReady || !targets.length || shootingRef.current) return
+      shootingRef.current = true
       unlockAudio()
       cancelRef.current = false
       setNote(null)
-      const granted = await claimSlots(targets)
-      if (!granted.length) return setNote(useRoom.getState().notice ?? 'Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
-      if (granted.length < targets.length) setNote(useRoom.getState().notice ?? `${targets.length - granted.length} frame sudah diambil teman, jadi dilewati.`)
-      targets = granted
       setRunning(true)
       try {
+        const granted = await claimSlots(targets)
+        if (cancelRef.current) return
+        if (!granted.length) {
+          setNote(useRoom.getState().notice ?? 'Frame itu sudah diambil teman. Pilih frame kosong yang lain.')
+          return
+        }
+        if (granted.length < targets.length) setNote(useRoom.getState().notice ?? `${targets.length - granted.length} frame sudah diambil teman, jadi dilewati.`)
+        targets = granted
         for (let n = 0; n < targets.length; n++) {
           for (let c = settings.countdown; c > 0; c--) {
             if (cancelRef.current) return
@@ -114,19 +164,24 @@ export function CapturePage() {
             if (settings.sound) beep(c === 1 ? 1320 : 880)
             await wait(1000)
           }
-          if (cancelRef.current) return
+          if (cancelRef.current || !v.videoWidth || !v.videoHeight) return
           setCount(null)
           if (settings.sound) shutter()
           setFlashKey((k) => k + 1)
           const img = snap(v, settings.mirror)
           const clip = settings.live ? await burst(v, settings.mirror) : undefined
+          if (cancelRef.current) return
           setPhoto(targets[n], { id: newId(), img, burst: clip, source: 'camera' })
           setSelected(null)
           if (n < targets.length - 1) await wait(settings.interval * 1000)
         }
+      } catch {
+        if (!cancelRef.current) setNote('Pemotretan gagal. Coba lagi atau upload foto dari galeri.')
       } finally {
+        releaseSlots(targets)
         setCount(null)
         setRunning(false)
+        shootingRef.current = false
       }
     },
     [camReady, settings, setPhoto],
@@ -150,6 +205,7 @@ export function CapturePage() {
       }
     }
     if (list.length > targets.length) setNote(`${list.length - targets.length} foto tidak dipakai karena frame-nya sudah penuh.`)
+    releaseSlots(targets)
     setSelected(null)
   }
 
@@ -240,7 +296,7 @@ export function CapturePage() {
             e.target.value = ''
           }}
         />
-        {(note ?? room.notice) && <p className="text-center text-sm font-semibold text-danger">{note ?? room.notice}</p>}
+        {(note ?? room.notice) && <p role="alert" className="text-center text-sm font-semibold text-danger">{note ?? room.notice}</p>}
       </div>
 
       {/* Panel samping */}
@@ -325,12 +381,18 @@ export function CapturePage() {
 
         {estafet ? <EstafetCard /> : <RoomCard empty={photos.length - filled} />}
 
-        <button className="btn btn-primary" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
-          Lanjut hias →{empties.length > 0 && filled > 0 && <span className="text-xs font-normal opacity-70">({empties.length} kosong)</span>}
-        </button>
-        <p className="text-center text-xs text-muted">
-          {layout.name} · foto tidak pernah diunggah ke server
-        </p>
+        <div className="sticky bottom-0 z-20 -mx-4 border-t border-border bg-bg/95 px-4 pt-3 pb-[max(.5rem,env(safe-area-inset-bottom))] backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-0">
+          <button className="btn btn-primary w-full" disabled={!filled || running} onClick={(e) => stepTo('/app/hias', e)}>
+            Lanjut hias →{empties.length > 0 && filled > 0 && <span className="text-xs font-normal opacity-70">({empties.length} kosong)</span>}
+          </button>
+          <p className="mt-2 text-center text-xs text-muted">
+            {estafet
+              ? 'Foto estafet dienkripsi dan disimpan sementara sampai 4 jam.'
+              : live
+                ? 'Foto dibagikan langsung ke peserta ruang selama sesi.'
+                : 'Foto solo diproses di perangkat dan tidak dikirim ke server.'}
+          </p>
+        </div>
       </aside>
     </div>
   )
@@ -436,7 +498,10 @@ function LayoutSwitch({ disabled }: { disabled: boolean }) {
               return (
                 <button
                   key={l.id}
-                  onClick={() => setLayout(l.id)}
+                  onClick={() => {
+                    if (design.overlays.length && !window.confirm('Mengganti layout akan menghapus stiker dan teks yang sudah dibuat. Lanjutkan?')) return
+                    setLayout(l.id)
+                  }}
                   disabled={disabled}
                   aria-pressed={active}
                   className={`flex w-20 shrink-0 flex-col items-center gap-1 rounded-xl border-2 p-1.5 text-center ${

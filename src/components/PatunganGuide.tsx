@@ -167,12 +167,29 @@ export function PatunganGuide({ stepsClass = 'sm:grid-cols-2 lg:grid-cols-4' }: 
   return (
     <div>
       <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="radiogroup" aria-label="Contoh foto bareng dari jauh">
-        {SCENARIOS.map((x) => (
+        {SCENARIOS.map((x, index) => (
           <button
             key={x.id}
+            type="button"
             role="radio"
             aria-checked={x.id === id}
+            tabIndex={x.id === id ? 0 : -1}
             onClick={() => setId(x.id)}
+            onKeyDown={(e) => {
+              const next = e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                ? (index + 1) % SCENARIOS.length
+                : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                  ? (index - 1 + SCENARIOS.length) % SCENARIOS.length
+                  : e.key === 'Home'
+                    ? 0
+                    : e.key === 'End'
+                      ? SCENARIOS.length - 1
+                      : index
+              if (next === index) return
+              e.preventDefault()
+              setId(SCENARIOS[next].id)
+              e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus()
+            }}
             className={`min-h-9 shrink-0 rounded-full border px-3 text-sm font-semibold transition-colors ${
               x.id === id ? 'border-accent bg-accent text-white' : 'border-border bg-surface hover:border-border-strong'
             }`}

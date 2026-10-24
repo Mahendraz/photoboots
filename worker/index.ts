@@ -1,4 +1,6 @@
 import { sha256Hex } from './crypto'
+import { parseJsonBody, readLimitedBody } from './body'
+import { claimStripQuota } from './quota'
 import { purgeRelays, relayRequest } from './relay'
 import { authConfigured, devLoginEnabled, emailLoginEnabled, getSession, handleAuthRequest, type AuthEnv, type LoginInfo, type SessionStore } from './auth'
 
@@ -21,6 +23,7 @@ const ROOM_GRACE_MS = 5 * 60_000
 /** Titipan ruang yang sudah 1 jam tidak diperbarui dihapus (cron tiap menit). */
 const ROOM_KEEP_MS = 60 * 60_000
 const ROOM_MAX_DATA = 64_000
+const ROOM_MAX_BODY = ROOM_MAX_DATA + 512
 
 const json = (data: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(data), {
@@ -100,21 +103,16 @@ export default {
       if (origin && origin !== url.origin) return fail(403, 'Origin tidak diizinkan.')
       const s = await getSession(request, env, acc.store)
       if (!s) return fail(401, 'Masuk dulu untuk mengunduh.')
-      const { id } = (await request.json().catch(() => ({}))) as { id?: string }
+      const raw = await readLimitedBody(request, 256)
+      if (!raw) return fail(413, 'Data terlalu besar.')
+      const { id } = parseJsonBody<{ id?: string }>(raw) ?? {}
       if (!id || !/^[\w-]{8,64}$/.test(id)) return fail(400, 'ID strip tidak valid.')
 
       const limit = limitOf(env)
-      const existing = await env.DB.prepare('SELECT free FROM strips WHERE user_sub = ?1 AND strip_id = ?2').bind(s.sub, id).first<{ free: number }>()
-      let free: boolean
-      if (existing) {
-        free = existing.free === 1
-      } else {
-        free = (await acc.usedToday(s.sub)) < limit
-        await env.DB.prepare('INSERT OR IGNORE INTO strips (user_sub, day, strip_id, free, created_at) VALUES (?1, ?2, ?3, ?4, ?5)')
-          .bind(s.sub, todayWib(), id, free ? 1 : 0, Date.now())
-          .run()
-      }
-      return json({ watermark: !free, quota: { used: await acc.usedToday(s.sub), limit } })
+      const day = todayWib()
+      const claim = await claimStripQuota(env.DB, s.sub, id, day, limit, Date.now())
+      if (!claim) return fail(500, 'Jatah unduhan tidak bisa dicatat.')
+      return json(claim)
     }
 
     const room = url.pathname.match(/^\/api\/rooms\/([0-9a-f]{64})$/)
@@ -149,7 +147,9 @@ async function roomRequest(request: Request, url: URL, env: Env, id: string) {
   if (origin && origin !== url.origin) return fail(403, 'Origin tidak diizinkan.')
   const ip = request.headers.get('CF-Connecting-IP') ?? 'local'
   if (env.ROOM_LIMITER && !(await env.ROOM_LIMITER.limit({ key: ip })).success) return fail(429, 'Terlalu sering.')
-  const body = (await request.json().catch(() => ({}))) as { key?: unknown; data?: unknown }
+  const raw = await readLimitedBody(request, ROOM_MAX_BODY)
+  if (!raw) return fail(413, 'Data terlalu besar.')
+  const body = parseJsonBody<{ key?: unknown; data?: unknown }>(raw) ?? {}
   if (typeof body.key !== 'string' || !/^[\w-]{16,64}$/.test(body.key)) return fail(400, 'Kunci tidak valid.')
   const owner = await sha256Hex(body.key)
   const now = Date.now()

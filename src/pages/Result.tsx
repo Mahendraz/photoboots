@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useStepNav } from '../components/Curtain'
 import { MiniStrip } from '../components/MiniStrip'
@@ -35,6 +35,10 @@ export function ResultPage() {
   const boxRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(0.3)
 
+  useEffect(() => {
+    setLast(null)
+  }, [input, hd])
+
   useLayoutEffect(() => {
     const el = boxRef.current
     if (!el) return
@@ -61,12 +65,18 @@ export function ResultPage() {
     setBusy(kind)
     setProgress(0)
     try {
-      const watermark = stripId in claimed ? claimed[stripId] : await claimStrip(stripId)
-      setClaimed((c) => ({ ...c, [stripId]: watermark }))
-      const blob =
+      // Selesaikan render lokal sebelum meminta kuota agar kegagalan render tidak menghabiskan jatah.
+      const predictedWatermark = stripId in claimed ? claimed[stripId] : willWatermark
+      const render = (watermark: boolean) =>
         kind === 'gif'
-          ? await renderGif(input, { watermark, onProgress: setProgress })
-          : await renderBlob(input, { scale: k, watermark, format: kind as Format })
+          ? renderGif(input, { watermark, onProgress: setProgress })
+          : renderBlob(input, { scale: k, watermark, format: kind as Format })
+      // Render dahulu supaya kegagalan kanvas/GIF tidak memakai jatah. Bila kuota berubah
+      // di tab lain saat proses, render ulang dengan keputusan server yang sebenarnya.
+      let blob: Blob = await render(predictedWatermark)
+      const finalWatermark = stripId in claimed ? claimed[stripId] : await claimStrip(stripId)
+      if (finalWatermark !== predictedWatermark) blob = await render(finalWatermark)
+      setClaimed((c) => ({ ...c, [stripId]: finalWatermark }))
       setLast(blob)
       downloadBlob(blob, fileName(kind))
       setDone((d) => ({ ...d, [kind]: d[kind] + 1 }))
@@ -85,8 +95,8 @@ export function ResultPage() {
     try {
       const ext = last.type === 'image/gif' ? 'gif' : last.type === 'image/png' ? 'png' : 'jpg'
       await navigator.share({ files: [new File([last], fileName(ext), { type: last.type })] })
-    } catch {
-      /* dibatalkan */
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setError('Gagal membagikan berkas. Coba unduh lalu bagikan dari perangkat ini.')
     } finally {
       setBusy(null)
     }
@@ -97,8 +107,8 @@ export function ResultPage() {
   const px = `${input.layout.width * k}×${input.layout.height * k}`
 
   return (
-    <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 overflow-y-auto p-4 lg:flex-row lg:p-6">
-      <div ref={boxRef} className="flex min-h-[45dvh] flex-1 items-center justify-center lg:min-h-0">
+    <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 overflow-y-auto p-4 pb-24 lg:flex-row lg:p-6">
+      <div ref={boxRef} role="img" aria-label="Pratinjau strip foto" className="flex min-h-[45dvh] flex-1 items-center justify-center lg:min-h-0">
         <MiniStrip input={input} scale={previewScale} placeholders={false} className="max-h-full max-w-full shadow-[0_10px_30px_rgba(20,24,31,0.3)]" />
       </div>
 
@@ -144,7 +154,7 @@ export function ResultPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <SparkleButton burst={done.jpg} buttonClassName="btn btn-primary w-full" disabled={!!busy} onClick={() => save('jpg')}>
+            <SparkleButton burst={done.jpg} buttonClassName="btn btn-primary hidden w-full sm:inline-flex" disabled={!!busy} onClick={() => save('jpg')}>
               {busy === 'jpg' ? 'Membuat…' : 'Unduh JPG'}
             </SparkleButton>
             <SparkleButton burst={done.png} buttonClassName="btn w-full" disabled={!!busy} onClick={() => save('png')}>
@@ -161,7 +171,7 @@ export function ResultPage() {
               </button>
             )}
           </div>
-          {error && <p className="text-sm font-semibold text-danger">{error}</p>}
+          {error && <p role="alert" className="text-sm font-semibold text-danger">{error}</p>}
           <p className="text-xs text-muted">
             {design.format === 'cetak' ? `Siap cetak 300 dpi: ${input.layout.print}.` : `Pas untuk ${FORMATS[design.format].label}.`} Unduh ulang, ganti
             ukuran/format, atau ubah stiker strip yang sama tidak memakan jatah.
@@ -169,11 +179,6 @@ export function ResultPage() {
         </div>
 
         <RoomCard empty={empty} />
-
-        <div className="rounded-2xl border border-border bg-bg-subtle p-4 text-sm">
-          <p className="font-bold">Segera: simpan & bagikan lewat link/QR</p>
-          <p className="mt-1 text-muted">Strip tersimpan di cloud dan bisa dibuka lewat link atau QR code. Fitur premium.</p>
-        </div>
 
         <div className="flex gap-2 pb-4">
           <button className="btn flex-1 text-sm" onClick={(e) => stepTo('/app/hias', e)}>
@@ -187,6 +192,11 @@ export function ResultPage() {
           </button>
         </div>
       </aside>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur sm:hidden">
+        <button className="btn btn-primary min-h-12 w-full" disabled={!!busy} onClick={() => save('jpg')}>
+          {busy === 'jpg' ? 'Membuat JPG…' : 'Unduh JPG'}
+        </button>
+      </div>
     </div>
   )
 }

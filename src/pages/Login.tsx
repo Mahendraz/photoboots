@@ -101,7 +101,7 @@ export function LoginPage() {
   const body =
     view === 'reset'
       ? 'Masukkan email kamu dan kami akan mengirimkan tautan untuk memilih kata sandi baru.'
-      : `Gratis ${quota.limit} strip per hari tanpa watermark. Fotomu tidak pernah dikirim ke server; akun cuma untuk menghitung jatah.`
+      : `Gratis ${quota.limit} strip per hari tanpa watermark. Foto sesi solo diproses di perangkat. Saat memakai foto bareng atau estafet, foto yang dibagikan disimpan sementara dengan enkripsi. Akun digunakan untuk menghitung jatah unduhan.`
 
   return (
     <div className="h-full overflow-y-auto">

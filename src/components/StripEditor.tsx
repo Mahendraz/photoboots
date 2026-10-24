@@ -8,6 +8,8 @@ interface Props {
   onSelect: (id: string | null) => void
   onChange: (id: string, patch: Partial<Overlay>) => void
   onRemove: (id: string) => void
+  onBeginGesture: () => void
+  onEndGesture: () => void
 }
 
 /** Kotak sentuh minimum untuk stiker kecil (px layar). */
@@ -21,7 +23,7 @@ const MIN_BOX = 44
  * Strip panjang (1:3) di layar HP jadi sempit sekali, jadi ada mode "Perbesar" yang
  * menyesuaikan lebar layar (bisa digulir) supaya stiker gampang diatur.
  */
-export function StripEditor({ input, selected, onSelect, onChange, onRemove }: Props) {
+export function StripEditor({ input, selected, onSelect, onChange, onRemove, onBeginGesture, onEndGesture }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const baseRef = useRef<HTMLCanvasElement | null>(null)
@@ -98,7 +100,7 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
       alive = false
       cancelAnimationFrame(id)
     }
-  })
+  }, [baseInput, overlays, scale])
 
   const k = box.w / W // px layar per satuan kanvas
 
@@ -123,6 +125,8 @@ export function StripEditor({ input, selected, onSelect, onChange, onRemove }: P
                 onSelect={() => onSelect(o.id)}
                 onChange={(p) => onChange(o.id, p)}
                 onRemove={() => onRemove(o.id)}
+                onBeginGesture={onBeginGesture}
+                onEndGesture={onEndGesture}
               />
             ))}
           </div>
@@ -150,6 +154,8 @@ function OverlayBox({
   onSelect,
   onChange,
   onRemove,
+  onBeginGesture,
+  onEndGesture,
 }: {
   o: Overlay
   k: number
@@ -159,11 +165,29 @@ function OverlayBox({
   onSelect: () => void
   onChange: (p: Partial<Overlay>) => void
   onRemove: () => void
+  onBeginGesture: () => void
+  onEndGesture: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const { w, h } = overlayBox(o, W)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef<{ x0: number; y0: number; ox: number; oy: number; d0: number; a0: number; size0: number; rot0: number } | null>(null)
+  const transaction = useRef(false)
+  const transformCleanup = useRef<(() => void) | null>(null)
+  const beginGesture = () => {
+    if (transaction.current) return
+    transaction.current = true
+    onBeginGesture()
+  }
+  const endGesture = () => {
+    if (!transaction.current) return
+    transaction.current = false
+    onEndGesture()
+  }
+  useEffect(() => () => {
+    transformCleanup.current?.()
+    endGesture()
+  }, [onEndGesture])
 
   /** Titik awal gerakan dari jari yang sedang menempel: satu jari = geser, dua jari = cubit (ukuran + putar). */
   function baseline() {
@@ -185,6 +209,7 @@ function OverlayBox({
   function onPointerDown(e: React.PointerEvent) {
     e.stopPropagation()
     onSelect()
+    if (pointers.current.size === 0) beginGesture()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     baseline()
@@ -212,10 +237,12 @@ function OverlayBox({
   function onPointerEnd(e: React.PointerEvent) {
     if (!pointers.current.delete(e.pointerId)) return
     baseline()
+    if (pointers.current.size === 0) endGesture()
   }
 
   function startTransform(e: React.PointerEvent) {
     e.stopPropagation()
+    beginGesture()
     const el = e.currentTarget as HTMLElement
     el.setPointerCapture(e.pointerId)
     const parent = ref.current!.parentElement!.getBoundingClientRect()
@@ -234,10 +261,15 @@ function OverlayBox({
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', up)
       el.removeEventListener('pointercancel', up)
+      window.removeEventListener('blur', up)
+      transformCleanup.current = null
+      endGesture()
     }
+    transformCleanup.current = up
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
     el.addEventListener('pointercancel', up)
+    window.addEventListener('blur', up)
   }
 
   const bw = Math.max(MIN_BOX, w * k)
@@ -246,14 +278,20 @@ function OverlayBox({
   return (
     <div
       ref={ref}
-      role="button"
+      role="group"
       tabIndex={0}
-      aria-label={`Stiker ${o.text ?? ''}`.trim()}
+      aria-label={`Lapisan ${o.text ?? (o.kind === 'image' ? 'stiker gambar' : o.kind)}`.trim()}
+      onFocus={onSelect}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
       onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          onSelect()
+          e.preventDefault()
+          return
+        }
         const step = e.shiftKey ? 0.05 : 0.01
         if (e.key === 'Delete' || e.key === 'Backspace') onRemove()
         else if (e.key === 'ArrowLeft') onChange({ x: o.x - step })

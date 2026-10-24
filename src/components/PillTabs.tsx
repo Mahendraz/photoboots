@@ -1,4 +1,4 @@
-import { useId, useRef, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent, type RefObject } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
 import { useGooeyPill } from '../lib/gooey'
@@ -40,6 +40,13 @@ export function PillTabs<T extends string>({
   const index = tabs.findIndex((t) => t.id === value)
   const prev = useRef(index)
   useGooeyPill(root, index, (i) => tabs[i].color)
+
+  useEffect(() => {
+    const el = panel?.current
+    if (!el) return
+    el.id = `${uid}-panel`
+    el.setAttribute('aria-labelledby', `${uid}-${value}`)
+  }, [panel, uid, value])
 
   useGSAP(
     () => {
@@ -86,6 +93,7 @@ export function PillTabs<T extends string>({
           role="tab"
           id={`${uid}-${t.id}`}
           aria-selected={i === index}
+          aria-controls={`${uid}-panel`}
           tabIndex={i === index ? 0 : -1}
           onClick={() => onChange(t.id)}
           className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-[11px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent sm:text-xs"

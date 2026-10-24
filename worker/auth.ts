@@ -1,3 +1,5 @@
+import { parseJsonBody, readLimitedBody } from './body'
+
 /**
  * Login Auth0, skema yang sama dengan asset.inwebsite.online (assetweb/worker/auth.ts), ditangani penuh oleh Worker.
  *
@@ -297,10 +299,10 @@ async function emailAuth(request: Request, url: URL, env: AuthEnv, onLogin: (s: 
   const ip = request.headers.get('CF-Connecting-IP') ?? ''
   if (env.AUTH_LIMITER && !(await env.AUTH_LIMITER.limit({ key: ip || 'unknown' })).success) return jsonResponse({ error: 'rate_limited' }, 429)
 
-  let body: Record<string, unknown>
-  try {
-    body = (await request.json()) as Record<string, unknown>
-  } catch {
+  const raw = await readLimitedBody(request, 8_192)
+  if (!raw) return jsonResponse({ error: 'payload_too_large' }, 413)
+  const body = parseJsonBody<Record<string, unknown>>(raw)
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return jsonResponse({ error: 'bad_request' }, 400)
   }
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
@@ -383,7 +385,9 @@ async function emailAuth(request: Request, url: URL, env: AuthEnv, onLogin: (s: 
 /** POST /auth/dev: login dengan nama saja, hanya di mode pengembangan lokal tanpa Auth0. */
 async function devLogin(request: Request, url: URL, env: AuthEnv, onLogin: (s: LoginInfo) => Promise<boolean>, store: SessionStore) {
   if (!devLoginEnabled(env) || !isLocalHttp(url)) return jsonResponse({ error: 'not_found' }, 404)
-  const { name } = (await request.json().catch(() => ({}))) as { name?: string }
+  const raw = await readLimitedBody(request, 2_048)
+  if (!raw) return jsonResponse({ error: 'payload_too_large' }, 413)
+  const { name } = parseJsonBody<{ name?: string }>(raw) ?? {}
   const clean = (typeof name === 'string' && name.trim() ? name.trim() : 'Tester').slice(0, 40)
   const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tester'
   const login: LoginInfo = { sub: `dev|${slug}`, name: clean, email: `${slug}@dev.local`, emailVerified: true }

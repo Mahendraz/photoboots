@@ -84,3 +84,21 @@ warna teks di tab Teks, dan font strip (Fredoka, Baloo 2, Pacifico, Bebas Neue, 
 3. **Inter dimuat 400/600/700** (InWebsite hanya 400/600) karena label UI app ini banyak memakai `font-bold`.
 4. **Ukuran teks** memakai skala Tailwind biasa (`text-sm`, `text-xs`); kelas `text-*-mobile` InWebsite
    belum diterapkan di app ini.
+
+## Pola interaksi produk
+
+- Mulai dengan layout rekomendasi dan CTA; format, bentuk, template, dan kiri/kanan tetap tersedia dalam
+  area Sesuaikan yang jelas. Semua 11 layout tetap dapat ditemukan lewat kategori.
+- Kolaborasi punya satu entry point; live room dan estafet adalah pilihan utama, patungan berkas adalah
+  fallback yang dijelaskan sebagai file yang sengaja dibagikan pengguna.
+- Status penting memakai teks dan ikon, bukan warna atau animasi saja. Error yang baru diumumkan memakai
+  `role="alert"`/live region yang sesuai; progress rutin countdown tidak diumumkan berulang.
+- Dialog memindahkan dan mengurung fokus, lalu mengembalikannya ke pemicu. Tab memiliki relasi panel.
+  Radio mendukung panah atau menggunakan input radio native. Objek editor menyediakan operasi keyboard
+  selain drag/touch.
+- Aksi yang dapat membuang foto/desain menyebut akibatnya dan menyediakan batal/undo. Ekspor hanya
+  menyatakan sukses sesudah file tersedia; quota diklaim setelah render sukses.
+- Foto solo diproses di perangkat. Estafet mengirim data foto terenkripsi sementara maksimal empat jam;
+  copy privasi pada layar harus membedakan kedua mode ini.
+- Sticky action menghormati safe area dan tidak menutupi preview atau kontrol penting. Pada ponsel pendek,
+  panel editor dapat diatur agar kanvas tidak kehilangan ruang.

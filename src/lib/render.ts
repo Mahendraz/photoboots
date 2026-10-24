@@ -55,6 +55,27 @@ export interface RenderOptions {
 
 const images = new Map<string, HTMLImageElement>()
 const pending = new Map<string, Promise<HTMLImageElement | null>>()
+const IMAGE_CACHE_LIMIT = 48
+const IMAGE_CACHE_MAX_BYTES = 64 * 1024 * 1024
+
+function imageBytes(image: HTMLImageElement) {
+  return image.naturalWidth * image.naturalHeight * 4
+}
+
+function touchImage(src: string, image: HTMLImageElement) {
+  images.delete(src)
+  images.set(src, image)
+}
+
+function trimImageCache() {
+  let bytes = [...images.values()].reduce((sum, image) => sum + imageBytes(image), 0)
+  while (images.size > IMAGE_CACHE_LIMIT || bytes > IMAGE_CACHE_MAX_BYTES) {
+    const oldest = images.entries().next().value as [string, HTMLImageElement] | undefined
+    if (!oldest) break
+    images.delete(oldest[0])
+    bytes -= imageBytes(oldest[1])
+  }
+}
 
 /**
  * URL gambar lintas-origin untuk dimuat dengan CORS (kanvas butuh CORS supaya bisa diekspor).
@@ -82,21 +103,37 @@ const fetchImage = (src: string) =>
     img.src = src
   })
 
-export const isImageReady = (src: string) => images.has(src)
+export function isImageReady(src: string) {
+  const image = images.get(src)
+  if (!image) return false
+  touchImage(src, image)
+  return true
+}
 
 export function loadImage(src: string): Promise<HTMLImageElement | null> {
   const ready = images.get(src)
-  if (ready) return Promise.resolve(ready)
+  if (ready) {
+    touchImage(src, ready)
+    return Promise.resolve(ready)
+  }
   let p = pending.get(src)
   if (!p) {
-    p = (async () => {
-      // Coba kedua dengan kunci cache baru, kalau entri pertama sudah tercemar dari versi lama aplikasi.
-      const img = (await fetchImage(corsSrc(src))) ?? (src === corsSrc(src) ? null : await fetchImage(corsSrc(src, Date.now())))
-      if (img) images.set(src, img)
-      // Gagal (mis. sinyal putus) tidak disimpan, supaya pemanggilan berikutnya mencoba lagi.
-      else pending.delete(src)
-      return img
-    })()
+    p = Promise.resolve().then(async () => {
+      try {
+        // Coba kedua dengan kunci cache baru, kalau entri pertama sudah tercemar dari versi lama aplikasi.
+        const img = (await fetchImage(corsSrc(src))) ?? (src === corsSrc(src) ? null : await fetchImage(corsSrc(src, Date.now())))
+        if (img) {
+          images.set(src, img)
+          trimImageCache()
+        }
+        return img
+      } catch {
+        return null
+      } finally {
+        // Hanya request yang sedang berjalan disimpan di sini; hasil cache punya batas ukurannya sendiri.
+        pending.delete(src)
+      }
+    })
     pending.set(src, p)
   }
   return p
@@ -460,11 +497,17 @@ function drawPattern(ctx: CanvasRenderingContext2D, r: Rect, bg: Template['bg'],
 // ------------------------------------------------------------------ foto per slot (dipotong + difilter, di-cache)
 
 const slotCache = new Map<string, HTMLCanvasElement>()
+const SLOT_CACHE_MAX_BYTES = 32 * 1024 * 1024
+let slotCacheBytes = 0
 
 function croppedPhoto(src: HTMLCanvasElement, key: string, w: number, h: number, filter: FilterDef) {
   const k = `${key}|${filter.id}|${w}x${h}`
   const hit = slotCache.get(k)
-  if (hit) return hit
+  if (hit) {
+    slotCache.delete(k)
+    slotCache.set(k, hit)
+    return hit
+  }
   const c = document.createElement('canvas')
   c.width = Math.max(1, w)
   c.height = Math.max(1, h)
@@ -475,12 +518,24 @@ function croppedPhoto(src: HTMLCanvasElement, key: string, w: number, h: number,
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, w, h)
   applyFilter(c, filter)
-  if (slotCache.size > 120) slotCache.delete(slotCache.keys().next().value!)
-  slotCache.set(k, c)
+  const bytes = c.width * c.height * 4
+  if (bytes <= SLOT_CACHE_MAX_BYTES) {
+    while (slotCacheBytes + bytes > SLOT_CACHE_MAX_BYTES && slotCache.size) {
+      const oldest = slotCache.entries().next().value as [string, HTMLCanvasElement] | undefined
+      if (!oldest) break
+      slotCache.delete(oldest[0])
+      slotCacheBytes -= oldest[1].width * oldest[1].height * 4
+    }
+    slotCache.set(k, c)
+    slotCacheBytes += bytes
+  }
   return c
 }
 
-export const clearPhotoCache = () => slotCache.clear()
+export const clearPhotoCache = () => {
+  slotCache.clear()
+  slotCacheBytes = 0
+}
 
 function drawSlot(
   ctx: CanvasRenderingContext2D,

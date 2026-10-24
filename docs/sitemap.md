@@ -1,17 +1,18 @@
 # Sitemap — InWebBooth (photobooth.inwebsite.online)
 
-Terakhir diubah: 2026-10-23 · Stack: React 19 + Vite 8 + react-router 8 (data router) + Zustand + Tailwind 4, Cloudflare Worker + D1
+Terakhir diubah: 2026-10-24 · Stack: React 19 + Vite 8 + react-router 8 (data router) + Zustand + Tailwind 4, Cloudflare Worker + D1
 Definisi route: `src/main.tsx` (`createBrowserRouter`) · shell: `src/components/AppShell.tsx` · API: `worker/index.ts`
 
-Tidak ada landing page: `/` langsung diarahkan ke `/app`. Seluruh produk adalah satu aplikasi alur 4 langkah
-(Layout → Foto → Hias → Unduh) ditambah halaman masuk dan dua halaman tujuan link undangan.
-Foto tidak pernah dikirim ke server (kecuali titipan terenkripsi estafet/ruang); komposisi dikerjakan di browser.
+Tidak ada landing page: `/` tetap langsung diarahkan ke `/app`. Seluruh produk adalah satu aplikasi alur 4 langkah
+(Layout → Foto → Hias → Unduh) ditambah halaman masuk dan dua halaman tujuan link undangan. Rute tak dikenal
+menampilkan keadaan 404 yang bisa kembali ke `/app`. Foto solo diproses di browser. Estafet menyimpan frame
+terenkripsi sementara sampai empat jam; klaim privasi harus menjelaskan pengecualian ini.
 
 ## Peta route
 
 ```
 /                       redirect → /app                                   → src/main.tsx
-*                       (rute tak dikenal) redirect → /app                → src/main.tsx
+*                       Rute tak dikenal → 404 di shell aplikasi          → src/pages/NotFound.tsx (rencana)
 
 /app                    AppShell (header + StepBar + tirai + sheet global) → src/components/AppShell.tsx
 ├── /app                Langkah 1 · Layout (Start)                         → src/pages/Start.tsx
@@ -29,7 +30,8 @@ Aturan perpindahan (guard) yang ada di kode:
 - `/app/estafet` → redirect ke `/app` kalau kode di hash < 10 karakter.
 - `/app/masuk` → kalau sudah login, redirect ke `returnTo` (default `/app`, disaring `safeBack`).
 - Pindah antar langkah selalu lewat tirai animasi (`useStepNav`, `src/components/Curtain.tsx`), bukan `navigate` langsung.
-- Halaman baru dirender setelah `restoreSession()` + `resumeRoom()` + `resumeRelay()` selesai (`AppShell.tsx`).
+- Shell dan halaman tetap dapat dipakai saat pemulihan lokal/jaringan berjalan; setiap pemulihan yang gagal atau
+  lambat menampilkan status/retry tanpa menahan seluruh aplikasi. Rute terjaga agar tidak merender state invalid.
 
 ### Endpoint server (bukan halaman)
 
@@ -62,13 +64,14 @@ Worker hanya dijalankan untuk `/api/*` dan `/auth/*`; halaman dan aset statis di
 
 | Route | Tujuan | Section (urut, atas ke bawah) |
 |---|---|---|
-| `/app` | Pilih layout, ukuran hasil, bentuk foto, template frame; atau mulai foto bareng | Judul · banner "lagi di ruang" (kalau ada) · Ukuran hasil · grid 11 layout · Bentuk foto (+ Kiri/Kanan kembar/beda) · Template frame · Panel foto bareng (link, estafet, panduan patungan, buka berkas) · bar bawah tetap `Mulai foto →` |
-| `/app/foto` | Ambil foto (kamera/upload) ke frame | Kamera + tombol (Upload · Mulai foto · Ganti kamera) · panel samping: daftar frame, ganti layout, pengaturan, kartu ruang/estafet, `Lanjut hias →` |
-| `/app/hias` | Hias strip: frame, filter, stiker, teks, atur | Kanvas editor (stiker bisa digeser/dicubit/diputar) + toolbar stiker terpilih · panel alat 5 tab (Frame · Filter · Stiker · Teks · Atur) · tombol `← Foto` / `Selesai, unduh →` |
-| `/app/unduh` | Unduh hasil | Pratinjau strip · kartu hasil (kuota, ukuran, JPG/PNG/GIF live, bagikan) · kartu ruang · teaser "Segera: simpan & bagikan lewat link/QR" · `← Hias lagi` / `Foto lagi` |
-| `/app/masuk` | Login | Maskot kucing · tab Masuk/Buat akun · Google · form email · mode dev (lokal) · `← Kembali` |
-| `/app/bareng#kode` | Tamu masuk ruang | Status menyambung → kartu undangan (strip, anggota, nama) → `Masuk & foto →`; cadangan berkas patungan kalau lambat |
-| `/app/estafet#kode` | Penerus estafet | Memuat → kartu estafet (strip, jatah, sisa waktu, nama) → `Isi bagianku →`; atau "Estafet ini sudah berakhir" |
+| `/app` | Pilih layout dan mulai solo atau kolaborasi | Hero + preview · layout rekomendasi dan kategori semua 11 layout · Sesuaikan (format, rasio, template, kiri/kanan) · satu entry foto jauh (live/estafet; patungan sebagai fallback) · bar bawah tetap `Mulai foto →` |
+| `/app/foto` | Ambil foto (kamera/upload) ke frame | Mobile: kamera/shutter/progress/retake lebih dulu, kontrol sekunder dapat dilipat, lanjut hias mudah dijangkau; desktop: kamera + sidebar · recovery kamera dan status privasi sesuai mode |
+| `/app/hias` | Hias strip: frame, filter, stiker, teks, atur | Kanvas + toolbar · lima tab tetap · panel mobile dapat diatur · undo/redo dan operasi keyboard · peringatan sebelum perubahan yang membuang overlay · tombol `← Foto` / `Selesai, unduh →` |
+| `/app/unduh` | Unduh hasil | Preview aksesibel + judul selesai · aksi unduh utama mudah dijangkau · JPG/PNG/GIF kondisional · quota dan pratinjau watermark · share native/fallback unduh · tanpa teaser fitur yang belum tersedia |
+| `/app/masuk` | Login | Maskot kucing · tab Masuk/Buat akun · Google · form email · mode dev (lokal) · alasan unduh perlu login · status pemulihan dan retry · `← Kembali` |
+| `/app/bareng#kode` | Tamu masuk ruang | Loading/ready/offline/host-left/expired dibedakan · kartu undangan (strip, anggota, nama) · `Masuk & foto →` · retry atau berkas patungan |
+| `/app/estafet#kode` | Penerus estafet | Loading/active/partial/complete/offline/expired dibedakan · kartu strip, jatah, sisa waktu, nama · `Isi bagianku →` · hapus menunggu konfirmasi Worker |
+| 404 dalam shell | Pulih dari route tak dikenal | Pesan rute tidak ditemukan · aksi kembali ke `/app`; route `/` tetap redirect, bukan 404 |
 
 Isi pilihan yang tetap (dari kode):
 - **Layout (11)**: Strip 3, Strip 4, Kiri–Kanan 6/8/10, Grid 4/6/8/9/10, Polaroid — `src/lib/layouts.ts`.
@@ -83,7 +86,7 @@ Isi pilihan yang tetap (dari kode):
 2. **Foto bareng live**: pembuat ruang tekan `Ajak lewat link` (di `/app` atau kartu ruang) → `InviteSheet` → kirim link WhatsApp/bagikan/salin → teman buka `/app/bareng#kode` → `Masuk & foto →` → `/app/foto` (frame berwarna per orang). Foto lewat WebRTC (Trystero); ruang hidup selama tab pembuat terbuka.
 3. **Estafet** (tidak perlu online barengan): `Mulai estafet` → `EstafetStartSheet` (jatah frame/orang + peringatan 4 jam) → `/app/foto` → kirim link → penerus buka `/app/estafet#kode` → isi bagian → teruskan; strip penuh → `Hias & unduh →`. Berakhir 4 jam setelah dibuat.
 4. **Patungan (berkas, cadangan)**: kirim berkas `.txt` lewat WhatsApp (`src/lib/patungan.ts`, `src/lib/share.ts`) → teman buka lewat tombol `Buka berkas dari teman` di `/app` (atau cadangan di `/app/bareng`) → `/app/foto`.
-5. **Login lalu kembali**: tombol Masuk menyimpan foto sesi ke IndexedDB (`src/lib/stash.ts`), pindah ke `/app/masuk` (atau redirect Auth0 untuk Google), lalu foto dipulihkan saat kembali.
+5. **Login lalu kembali**: tombol Masuk menyimpan foto aktif, foto cadangan, dan state desain ke IndexedDB (`src/lib/stash.ts`), pindah ke `/app/masuk` (atau redirect Auth0 untuk Google), lalu state dipulihkan dan stash dihapus hanya setelah berhasil.
 
 ## Dashboard
 
@@ -96,10 +99,10 @@ Tidak ada. Satu-satunya area akun adalah `AccountSheet` (nama, email, sisa kuota
 - **CTA utama**: `Mulai foto →` (`/app`, bar bawah tetap) lalu `Selesai, unduh →` (`/app/hias`) lalu `Unduh JPG` (`/app/unduh`).
 - **Gerbang unduh**: tanpa login, tombol Unduh mengarah ke `/app/masuk?returnTo=/app/unduh`. Login: gratis 5 strip/hari tanpa watermark (reset 00.00 WIB, `DAILY_LIMIT`); setelah habis tetap bisa unduh, diberi watermark. Strip yang sama (`stripId`) tidak memakan jatah dua kali.
 - **Form**: hanya form login/daftar/reset di `/app/masuk` (ke `/auth/email/*`) dan isian nama di sheet/halaman undangan. Tidak ada form kontak.
-- **Pembayaran/premium**: belum ada. Hanya teaser teks di `/app/unduh`.
+- **Pembayaran/premium**: belum ada; tidak ada aksi/teaser yang tampak seperti fitur aktif.
 
 ## Belum dibangun / menunggu
 
 - Simpan & bagikan strip lewat link/QR (premium, butuh R2), pembayaran — baru teaser di `Result.tsx`.
 - Landing page: sengaja belum ada (`/` → `/app`).
-- Tidak ada halaman 404 sendiri; rute tak dikenal diarahkan ke `/app`.
+- Rute tak dikenal memakai halaman 404 di dalam shell; `/` sengaja tetap redirect ke `/app`.

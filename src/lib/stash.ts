@@ -23,6 +23,8 @@ interface Stash {
   at: number
   design: Design
   photos: (StoredPhoto | null)[]
+  /** Optional so stash records written by older versions still restore. */
+  sparePhotos?: (StoredPhoto | null)[]
   stripId: string
   patunganFrom: string | null
 }
@@ -52,6 +54,8 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
 export const idbGet = <T>(key: string) => tx<T | undefined>('readonly', (st) => st.get(key))
 export const idbPut = (key: string, value: unknown) => tx('readwrite', (st) => st.put(value, key))
 export const idbDel = (key: string) => tx('readwrite', (st) => st.delete(key))
+
+export type SessionStashResult = 'saved' | 'empty' | 'stale' | 'unavailable'
 
 const toBlob = (c: HTMLCanvasElement, q: number) =>
   new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/jpeg', q))
@@ -104,28 +108,68 @@ export function unpackPhotos(photos: (StoredPhoto | null)[]) {
   )
 }
 
-/** Simpan sesi saat ini. Aman dipanggil walau belum ada foto (tidak menyimpan apa-apa). */
+/** Simpan sesi saat ini dan laporkan bila penyimpanan perangkat gagal. */
 export async function stashSession() {
   const s = useBooth.getState()
-  if (!s.photos.some(Boolean)) return
+  if (![...s.photos, ...s.sparePhotos].some(Boolean)) {
+    try {
+      await idbDel(KEY)
+      return 'empty' satisfies SessionStashResult
+    } catch {
+      return 'unavailable' satisfies SessionStashResult
+    }
+  }
   try {
-    const data: Stash = { at: Date.now(), design: s.design, photos: await packPhotos(s.photos), stripId: s.stripId, patunganFrom: s.patunganFrom }
+    const [photos, sparePhotos] = await Promise.all([packPhotos(s.photos), packPhotos(s.sparePhotos)])
+    const current = useBooth.getState()
+    if (
+      current.design !== s.design ||
+      current.photos !== s.photos ||
+      current.sparePhotos !== s.sparePhotos ||
+      current.stripId !== s.stripId ||
+      current.patunganFrom !== s.patunganFrom
+    ) return 'stale' satisfies SessionStashResult
+    const data: Stash = {
+      at: Date.now(),
+      design: s.design,
+      photos,
+      sparePhotos,
+      stripId: s.stripId,
+      patunganFrom: s.patunganFrom,
+    }
     await idbPut(KEY, data)
+    return 'saved' satisfies SessionStashResult
   } catch {
-    /* IndexedDB tidak tersedia: login tetap jalan, foto sesi ini saja yang hilang */
+    return 'unavailable' satisfies SessionStashResult
   }
 }
 
-/** Pulihkan sesi yang disimpan sebelum login. Mengembalikan true kalau ada yang dipulihkan. */
-export async function restoreSession() {
+export type SessionRestoreResult = 'restored' | 'empty' | 'expired' | 'aborted' | 'unavailable' | 'corrupt'
+
+/** Pulihkan sesi lokal dan bedakan sesi kosong dari penyimpanan yang gagal dibaca. */
+export async function restoreSession(signal?: AbortSignal) {
+  let data: Stash | undefined
   try {
-    const data = await idbGet<Stash>(KEY)
-    if (!data) return false
-    await idbDel(KEY)
-    if (Date.now() - data.at > MAX_AGE) return false
-    useBooth.getState().restore(data.design, await unpackPhotos(data.photos), data.stripId, data.patunganFrom)
-    return true
+    data = await idbGet<Stash>(KEY)
   } catch {
-    return false
+    return 'unavailable' satisfies SessionRestoreResult
+  }
+  if (signal?.aborted) return 'aborted' satisfies SessionRestoreResult
+  if (!data) return 'empty' satisfies SessionRestoreResult
+  if (Date.now() - data.at > MAX_AGE) {
+    void idbDel(KEY).catch(() => null)
+    return 'expired' satisfies SessionRestoreResult
+  }
+  try {
+    const [photos, sparePhotos] = await Promise.all([
+      unpackPhotos(data.photos),
+      unpackPhotos(data.sparePhotos ?? []),
+    ])
+    if (signal?.aborted) return 'aborted' satisfies SessionRestoreResult
+    useBooth.getState().restore(data.design, photos, data.stripId, data.patunganFrom, sparePhotos)
+    // Keep the recovered copy: the shell's debounced autosave refreshes it after the restored route mounts.
+    return 'restored' satisfies SessionRestoreResult
+  } catch {
+    return 'corrupt' satisfies SessionRestoreResult
   }
 }

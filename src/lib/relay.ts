@@ -1,7 +1,7 @@
 import { decodePhotoBytes, encodePhotoBytes } from './photoCodec'
 import { decryptBytes, decryptJson, encryptBytes, encryptJson, hashHex, linkKey } from './linkCrypto'
 import type { Photo } from './render'
-import { inRoom, leaveRoom, memberKey, newCode, savedName, useRoom, type Member } from './room'
+import { inRoom, leaveRoom, memberKey, newCode, savedName, useRoom, type Member, type RoomState } from './room'
 import { useBooth, type Design } from '../store'
 
 /**
@@ -23,7 +23,10 @@ const POLL_MS = 6000
 interface RelayMeta {
   design: Design
   creatorName: string
-  creatorWho: string
+  /** Stable relay-scoped pseudonym; unlike creatorWho it cannot be reused as an X-Who identity. */
+  creatorTag?: string
+  /** Read-only compatibility for relays created before public owner tags were introduced. */
+  creatorWho?: string
   created: number
 }
 interface FrameHeader {
@@ -36,7 +39,7 @@ interface RelayInfo {
   slots: number
   perPerson: number
   expiresAt: number
-  frames: { slot: number; who: string; v: number }[]
+  frames: { slot: number; ownerTag: string; mine: boolean; v: number }[]
 }
 
 let code: string | null = null
@@ -55,7 +58,9 @@ let endTimer: ReturnType<typeof setTimeout> | undefined
 let unsubscribe: (() => void) | null = null
 let syncing: Promise<void> | null = null
 
-const patch = useRoom.setState
+// Resolve the room store lazily: room.ts also imports relay helpers, so reading its export during module
+// initialization can hit the temporal dead zone when an invite route is the first page loaded.
+const patch = (partial: Partial<RoomState>) => useRoom.setState(partial)
 const enc = new TextEncoder()
 const dec = new TextDecoder()
 
@@ -72,6 +77,7 @@ function applyPhoto(slot: number, photo: Photo | null) {
 }
 
 const api = (path = '') => `/api/relays/${rid}${path}`
+const relayOwnerTag = (id: string, owner: string) => `owner:${hashHex(`inwebbooth-relay-owner:${id}:${owner}`)}`
 const who = () => useRoom.getState().selfId
 
 function remember(c: string) {
@@ -108,16 +114,18 @@ function saveOwnerKey(c: string, k: string) {
 // ------------------------------------------------------------------ anggota & frame
 
 function members(owners: (string | null)[]): Member[] {
+  const state = useRoom.getState()
   const self = who()
+  const host = state.hostId
   const order: string[] = []
-  if (meta) order.push(meta.creatorWho)
+  if (host) order.push(host)
   owners.forEach((o) => o && !order.includes(o) && order.push(o))
   if (!order.includes(self)) order.push(self)
   return order.map((id, tone) => ({
     id,
     tone,
     online: true,
-    name: id === self ? savedName() : (names.get(id) ?? (id === meta?.creatorWho ? meta.creatorName : '')),
+    name: id === self ? savedName() : (names.get(id) ?? (id === host ? state.hostName : '')),
   }))
 }
 
@@ -157,24 +165,26 @@ function sync() {
 async function doSync() {
   const c = code
   if (!c || !key) return
-  const res = await fetch(api(), { cache: 'no-store' }).catch(() => null)
+  const self = who()
+  const res = await fetch(api(), { cache: 'no-store', headers: { 'X-Who': self } }).catch(() => null)
   if (code !== c) return
   if (res?.status === 404) return expire()
   if (!res?.ok) return
   const info = (await res.json()) as RelayInfo
   if (code !== c) return
+  const ownerOf = (f: RelayInfo['frames'][number]) => (f.mine ? self : f.ownerTag)
   const slots = useBooth.getState().photos.length
   const owners: (string | null)[] = Array.from({ length: slots }, () => null)
   const seen = new Set<number>()
   for (const f of info.frames) {
     if (f.slot >= slots) continue
-    owners[f.slot] = f.who
+    owners[f.slot] = ownerOf(f)
     seen.add(f.slot)
   }
   // Frame yang sedang dipesan/diunggah sendiri tetap milik sendiri sampai server mengonfirmasi.
   const local = useRoom.getState().owners
   local.forEach((o, i) => {
-    if (o === who() && owners[i] === null && (pending.has(i) || !useBooth.getState().photos[i])) owners[i] = o
+    if (o === self && owners[i] === null && (pending.has(i) || !useBooth.getState().photos[i])) owners[i] = o
   })
   setOwners(owners)
 
@@ -184,10 +194,11 @@ async function doSync() {
     if (!r?.ok || code !== c) continue
     try {
       const { header, photo } = await openFrame(await r.arrayBuffer())
-      names.set(f.who, header.name)
+      const owner = ownerOf(f)
+      names.set(owner, header.name)
       versions.set(f.slot, f.v)
       // Foto sendiri dari HP ini tidak perlu ditimpa salinan servernya.
-      if (useBooth.getState().photos[f.slot]?.id !== photo.id) applyPhoto(f.slot, f.who === who() ? { ...photo, source: 'camera' } : photo)
+      if (useBooth.getState().photos[f.slot]?.id !== photo.id) applyPhoto(f.slot, f.mine ? { ...photo, source: 'camera' } : photo)
     } catch {
       /* frame rusak / kunci salah: dilewati */
     }
@@ -278,6 +289,20 @@ function watch() {
   })
 }
 
+/** Lepas frame kosong yang baru dipesan, misalnya saat pemotretan dibatalkan. */
+export function relayRelease(slots: number[]) {
+  const state = useRoom.getState()
+  const photos = useBooth.getState().photos
+  const owners = state.owners.slice()
+  let changed = false
+  for (const slot of new Set(slots)) {
+    if (slot < 0 || slot >= owners.length || owners[slot] !== state.selfId || photos[slot] || pending.has(slot)) continue
+    owners[slot] = null
+    changed = true
+  }
+  if (changed) setOwners(owners)
+}
+
 /** Pesan frame sebelum memotret: frame kosong (atau milik sendiri) selama jatah masih ada. */
 export function relayClaim(slots: number[]) {
   const s = useRoom.getState()
@@ -320,7 +345,7 @@ function begin(c: string, k: CryptoKey, id: string, info: { slots: number; perPe
     mode: 'estafet',
     role,
     status: Date.now() < info.expiresAt ? 'ready' : 'expired',
-    hostId: meta!.creatorWho,
+    hostId: role === 'host' ? useRoom.getState().selfId : (meta!.creatorTag ?? meta!.creatorWho ?? null),
     hostName: meta!.creatorName,
     perPerson: info.perPerson,
     expiresAt: info.expiresAt,
@@ -353,7 +378,12 @@ export async function startRelay(perPerson: number, name: string) {
   const writeKey = newCode(24)
   const self = await hashHex(`${memberKey()}:${c}`)
   const booth = useBooth.getState()
-  meta = { design: { ...booth.design, overlays: [] }, creatorName: name.trim().slice(0, 24), creatorWho: self, created: Date.now() }
+  meta = {
+    design: { ...booth.design, overlays: [] },
+    creatorName: name.trim().slice(0, 24),
+    creatorTag: await relayOwnerTag(id, self),
+    created: Date.now(),
+  }
   const res = await fetch(`/api/relays/${id}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -369,11 +399,13 @@ export async function startRelay(perPerson: number, name: string) {
   return c
 }
 
-/** Buka estafet dari link (atau setelah refresh). false kalau estafetnya sudah berakhir / tidak ada. */
-const opening = new Map<string, Promise<boolean>>()
+/** Hasil membuka estafet agar link kedaluwarsa tidak tertukar dengan gangguan jaringan. */
+export type RelayOpenResult = 'ok' | 'gone' | 'offline' | 'error' | 'invalid'
 
-export function openRelay(c: string) {
-  if (code === c && useRoom.getState().mode === 'estafet') return Promise.resolve(true)
+const opening = new Map<string, Promise<RelayOpenResult>>()
+
+export function openRelayDetailed(c: string): Promise<RelayOpenResult> {
+  if (code === c && useRoom.getState().mode === 'estafet') return Promise.resolve('ok')
   // Dua pemanggil bersamaan (mis. halaman link + pemulihan setelah refresh) memakai satu pembukaan yang sama.
   let run = opening.get(c)
   if (!run) {
@@ -383,38 +415,74 @@ export function openRelay(c: string) {
   return run
 }
 
-async function openNow(c: string) {
-  const k = await linkKey(c, 'relay')
-  const id = await hashHex(`inwebbooth-relay:${c}`)
-  const res = await fetch(`/api/relays/${id}`, { cache: 'no-store' }).catch(() => null)
-  if (!res?.ok) return false
-  const info = (await res.json()) as RelayInfo
+export function openRelay(c: string) {
+  return openRelayDetailed(c).then((result) => result === 'ok')
+}
+
+async function openNow(c: string): Promise<RelayOpenResult> {
+  let k: CryptoKey
+  let id: string
+  let self: string
+  try {
+    k = await linkKey(c, 'relay')
+    id = await hashHex(`inwebbooth-relay:${c}`)
+    self = await hashHex(`${memberKey()}:${c}`)
+  } catch {
+    return 'invalid'
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`/api/relays/${id}`, { cache: 'no-store', headers: { 'X-Who': self } })
+  } catch {
+    return 'offline'
+  }
+  if (res.status === 404) return 'gone'
+  if (!res.ok) return 'error'
+
+  let info: RelayInfo
+  try {
+    info = (await res.json()) as RelayInfo
+  } catch {
+    return 'error'
+  }
   let m: RelayMeta
   try {
     m = await decryptJson<RelayMeta>(k, info.meta)
   } catch {
-    return false
+    return 'invalid'
   }
-  if (inRoom()) await leaveRoom()
-  meta = m
-  const self = await hashHex(`${memberKey()}:${c}`)
-  applying = true
   try {
-    useBooth.getState().loadPatungan(m.design, [], m.creatorName || null)
-  } finally {
+    if (inRoom()) await leaveRoom()
+    meta = m
+    const selfTag = await relayOwnerTag(id, self)
+    const isCreator = m.creatorTag ? m.creatorTag === selfTag : m.creatorWho === self
+    applying = true
+    try {
+      useBooth.getState().loadPatungan(m.design, [], m.creatorName || null)
+    } finally {
+      applying = false
+    }
+    patch({ selfId: self, owners: [] })
+    begin(c, k, id, info, isCreator ? 'host' : 'guest')
+    await sync()
+    return 'ok'
+  } catch {
     applying = false
+    return 'error'
   }
-  patch({ selfId: self, owners: [] })
-  begin(c, k, id, info, self === m.creatorWho ? 'host' : 'guest')
-  await sync()
-  return true
 }
 
 /** Halaman dimuat ulang saat sedang estafet: buka lagi dari titipan server. */
 export async function resumeRelay() {
   const c = remembered()
   if (!c || inRoom()) return
-  if (!(await openRelay(c))) forget()
+  const result = await openRelayDetailed(c)
+  if (result === 'gone' || result === 'invalid') {
+    forget()
+    return
+  }
+  if (result !== 'ok') throw new Error(result === 'offline' ? 'Tidak bisa terhubung untuk memulihkan estafet.' : 'Server estafet sedang bermasalah.')
 }
 
 function forget() {
@@ -447,9 +515,20 @@ export const isRelayOwner = (c: string | null) => !!c && !!ownerKeys()[c]
 export async function deleteRelay() {
   const c = code
   const k = c ? ownerKeys()[c] : null
-  if (!c || !k) return
-  await fetch(api(), { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: k }) }).catch(() => null)
+  if (!c || !k) return false
+  patch({ notice: null })
+  const res = await fetch(api(), {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ key: k }),
+  }).catch(() => null)
+  if (!res?.ok) {
+    const err = (await res?.json().catch(() => ({}))) as { error?: string } | undefined
+    patch({ notice: err?.error ?? 'Estafet gagal dihapus. Cek koneksi lalu coba lagi.' })
+    return false
+  }
   expire()
+  return true
 }
 
 export const syncRelay = () => sync()

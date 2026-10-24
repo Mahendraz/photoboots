@@ -6,7 +6,7 @@ import { MiniStrip } from '../components/MiniStrip'
 import { MemberChip } from '../components/Room'
 import { useAuth } from '../lib/api'
 import { layoutById } from '../lib/layouts'
-import { openRelay, relayCode } from '../lib/relay'
+import { openRelayDetailed, relayCode } from '../lib/relay'
 import { displayName, savedName, saveName, useRoom } from '../lib/room'
 import { renderInput, useBooth } from '../store'
 
@@ -22,15 +22,26 @@ export function EstafetPage() {
   const photos = useBooth((s) => s.photos)
   const user = useAuth((s) => s.user)
   const [name, setName] = useState(() => savedName() || user?.name?.split(' ')[0] || '')
-  const [state, setState] = useState<'loading' | 'ok' | 'gone'>(() => (relayCode() === code ? 'ok' : 'loading'))
+  const [state, setState] = useState<'loading' | 'ok' | 'gone' | 'offline' | 'error' | 'invalid'>(() => (relayCode() === code ? 'ok' : 'loading'))
+  const [attempt, setAttempt] = useState(0)
   const left = useTimeLeft(expiresAt)
 
   useEffect(() => {
     if (code.length < 10) return
     if (relayCode() === code) return setState('ok')
+    let alive = true
     setState('loading')
-    void openRelay(code).then((ok) => setState(ok ? 'ok' : 'gone'))
-  }, [code])
+    void openRelayDetailed(code)
+      .then((result) => {
+        if (alive) setState(result)
+      })
+      .catch(() => {
+        if (alive) setState('error')
+      })
+    return () => {
+      alive = false
+    }
+  }, [code, attempt])
 
   if (code.length < 10) return <Navigate to="/app" replace />
 
@@ -55,7 +66,7 @@ export function EstafetPage() {
             <h1 className="mt-4 font-heading text-xl font-bold">Membuka estafet foto…</h1>
             <p className="mt-1 text-sm text-muted">Memuat foto dari teman-temanmu.</p>
           </div>
-        ) : state === 'gone' || status === 'expired' || mode !== 'estafet' ? (
+        ) : state === 'gone' || (state === 'ok' && (status === 'expired' || mode !== 'estafet')) ? (
           <div className="card space-y-3 p-5">
             <h1 className="font-heading text-xl font-bold">Estafet ini sudah berakhir</h1>
             <p className="text-sm text-muted">
@@ -64,6 +75,21 @@ export function EstafetPage() {
             <button className="btn btn-primary w-full" onClick={(e) => stepTo('/app', e)}>
               Bikin strip sendiri
             </button>
+          </div>
+        ) : state !== 'ok' ? (
+          <div role="alert" className="card space-y-3 p-5">
+            <h1 className="font-heading text-xl font-bold">
+              {state === 'offline' ? 'Tidak bisa terhubung ke estafet' : state === 'invalid' ? 'Link estafet tidak bisa dibuka' : 'Estafet belum bisa dimuat'}
+            </h1>
+            <p className="text-sm text-muted">
+              {state === 'offline'
+                ? 'Cek koneksi internet lalu coba lagi. Link belum dianggap kedaluwarsa.'
+                : state === 'invalid'
+                  ? 'Periksa kembali link yang dikirim temanmu.'
+                  : 'Server belum merespons dengan benar. Coba lagi sebentar lagi.'}
+            </p>
+            {state !== 'invalid' && <button className="btn btn-primary w-full" onClick={() => setAttempt((value) => value + 1)}>Coba lagi</button>}
+            <button className="btn w-full" onClick={(e) => stepTo('/app', e)}>Kembali ke awal</button>
           </div>
         ) : (
           <div className="anim-rise card p-5">

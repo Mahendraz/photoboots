@@ -30,9 +30,19 @@ export function JoinPage() {
     if (code.length < 6 || ownRoom) return
     // Link yang pernah dibuka di browser ini (tab tertutup, termasuk oleh pembuat ruangnya): lanjutkan
     // dengan frame dan foto yang tersimpan di perangkat ini. Kalau belum pernah, masuk sebagai tamu baru.
-    void resumeRoom(code).then((resumed) => {
-      if (!resumed) return joinRoom(code, name)
-    })
+    let active = true
+    setError(null)
+    void (async () => {
+      try {
+        const resumed = await resumeRoom(code)
+        if (active && !resumed) await joinRoom(code, name)
+      } catch {
+        if (active) setError('Sambungan ruang gagal dimulai. Coba lagi atau gunakan berkas dari teman.')
+      }
+    })()
+    return () => {
+      active = false
+    }
     // Sambung sekali saat halaman dibuka; nama dikirim ulang saat masuk.
   }, [code])
 
@@ -51,8 +61,13 @@ export function JoinPage() {
   }
 
   async function retry() {
-    await leaveRoom()
-    void joinRoom(code, name)
+    setError(null)
+    try {
+      await leaveRoom()
+      await joinRoom(code, name)
+    } catch {
+      setError('Sambungan masih gagal. Periksa jaringan atau lanjutkan lewat berkas patungan.')
+    }
   }
 
   async function openFile(file: File) {
@@ -121,13 +136,19 @@ export function JoinPage() {
             <span className="mx-auto block size-12 animate-spin rounded-full border-4 border-accent-subtle border-t-accent" aria-hidden />
             <h1 className="mt-4 font-heading text-xl font-bold">Menyambung ke ruang foto…</h1>
             <p className="mt-1 text-sm text-muted">Biasanya cuma beberapa detik.</p>
-            {status === 'slow' && (
+            {(status === 'slow' || error) && (
               <div className="mt-5 space-y-3 text-left text-sm">
-                <p className="rounded-xl bg-warning-subtle p-3 text-warning">Belum nyambung juga. Ini yang biasanya jadi penyebab:</p>
-                <ul className="list-disc space-y-1.5 pl-5 text-muted">
-                  <li>Temanmu sudah lebih dari 5 menit tidak membuka InWebBooth. Minta dia buka lagi, nanti kamu otomatis tersambung.</li>
-                  <li>Jaringan seluler kadang memblokir sambungan langsung antar-HP. Coba pindah ke Wi-Fi.</li>
-                </ul>
+                {error ? (
+                  <p className="rounded-xl bg-danger-subtle p-3 text-danger" role="alert">{error}</p>
+                ) : (
+                  <>
+                    <p className="rounded-xl bg-warning-subtle p-3 text-warning">Belum nyambung juga. Ini yang biasanya jadi penyebab:</p>
+                    <ul className="list-disc space-y-1.5 pl-5 text-muted">
+                      <li>Temanmu sudah lebih dari 5 menit tidak membuka InWebBooth. Minta dia buka lagi, nanti kamu otomatis tersambung.</li>
+                      <li>Jaringan seluler kadang memblokir sambungan langsung antar-HP. Coba pindah ke Wi-Fi.</li>
+                    </ul>
+                  </>
+                )}
                 <div className="grid gap-2 pt-1">
                   <button className="btn btn-primary w-full" onClick={retry}>
                     Coba lagi
@@ -137,7 +158,6 @@ export function JoinPage() {
                   </button>
                 </div>
                 <p className="text-xs text-muted">Kalau tetap gagal, minta temanmu tekan “Kirim berkas patungan” lalu buka berkasnya di sini.</p>
-                {error && <p className="font-semibold text-danger">{error}</p>}
               </div>
             )}
             <input

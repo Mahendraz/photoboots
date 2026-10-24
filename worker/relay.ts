@@ -1,4 +1,5 @@
 import { sha256Hex } from './crypto'
+import { parseJsonBody, readLimitedBody } from './body'
 
 /**
  * Estafet foto bareng (lihat migrations/0003_relays.sql). Server hanya menyimpan data terenkripsi dan menegakkan
@@ -14,6 +15,7 @@ export interface RelayEnv {
 export const RELAY_TTL_MS = 4 * 60 * 60_000
 const MAX_SLOTS = 10
 const MAX_META = 16_000
+const MAX_CREATE_BODY = 24_000
 /** Satu frame: foto + rekaman live, terenkripsi. Di bawah batas nilai D1 (2 MB). */
 const MAX_FRAME = 1_900_000
 
@@ -52,6 +54,11 @@ const b64 = (buf: ArrayBuffer | Uint8Array | number[]) => {
 }
 const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
 
+/** Relay-scoped pseudonym; never expose the raw frame owner identifier in API responses. */
+async function relayOwnerTag(id: string, who: string) {
+  return `owner:${await sha256Hex(`inwebbooth-relay-owner:${id}:${who}`)}`
+}
+
 export async function relayRequest(request: Request, url: URL, env: RelayEnv, id: string, slotPart: string | undefined) {
   const db = env.DB
   const write = request.method !== 'GET'
@@ -71,16 +78,32 @@ export async function relayRequest(request: Request, url: URL, env: RelayEnv, id
         .prepare('SELECT slot, who, updated_at FROM relay_frames WHERE relay_id = ?1 ORDER BY slot')
         .bind(id)
         .all<{ slot: number; who: string; updated_at: number }>()
+      const requestedWho = request.headers.get('X-Who') ?? ''
+      const viewer = /^[0-9a-f]{64}$/.test(requestedWho) ? requestedWho : ''
       return json({
         meta: b64(r.meta),
         slots: r.slots,
         perPerson: r.per_person,
         expiresAt: r.expires_at,
-        frames: frames.results.map((f) => ({ slot: f.slot, who: f.who, v: f.updated_at })),
+        frames: await Promise.all(
+          frames.results.map(async (f) => ({
+            slot: f.slot,
+            ownerTag: await relayOwnerTag(id, f.who),
+            mine: f.who === viewer,
+            v: f.updated_at,
+          })),
+        ),
       })
     }
 
-    const body = (await request.json().catch(() => ({}))) as { key?: unknown; meta?: unknown; slots?: unknown; perPerson?: unknown }
+    const rawBody = await readLimitedBody(request, MAX_CREATE_BODY)
+    if (!rawBody) return fail(413, 'Data terlalu besar.')
+    const body = parseJsonBody<{
+      key?: unknown
+      meta?: unknown
+      slots?: unknown
+      perPerson?: unknown
+    }>(rawBody) ?? {}
     if (typeof body.key !== 'string' || !/^[\w-]{16,64}$/.test(body.key)) return fail(400, 'Kunci tidak valid.')
     const owner = await sha256Hex(body.key)
 
@@ -125,28 +148,31 @@ export async function relayRequest(request: Request, url: URL, env: RelayEnv, id
   if (!/^[0-9a-f]{64}$/.test(who)) return fail(400, 'Identitas tidak valid.')
 
   if (request.method === 'DELETE') {
-    await db.prepare('DELETE FROM relay_frames WHERE relay_id = ?1 AND slot = ?2 AND who = ?3').bind(id, slot, who).run()
+    const removed = await db.prepare('DELETE FROM relay_frames WHERE relay_id = ?1 AND slot = ?2 AND who = ?3').bind(id, slot, who).run()
+    if (!removed.meta.changes) return fail(404, 'Frame kosong atau bukan milikmu.', 'forbidden')
     return json({ ok: true })
   }
 
   if (request.method === 'PUT') {
-    const photo = await request.arrayBuffer()
-    if (!photo.byteLength || photo.byteLength > MAX_FRAME) return fail(413, 'Foto terlalu besar.')
-    // Jatah per orang: frame lain milik orang ini (frame yang sedang diganti tidak dihitung).
-    const mine = await db
-      .prepare('SELECT COUNT(*) AS n FROM relay_frames WHERE relay_id = ?1 AND who = ?2 AND slot != ?3')
-      .bind(id, who, slot)
-      .first<{ n: number }>()
-    if ((mine?.n ?? 0) >= r.per_person) return fail(403, `Jatahmu ${r.per_person} frame sudah terpakai.`, 'quota')
-    // Frame kosong, atau frame sendiri yang difoto ulang. Frame orang lain tidak bisa ditimpa.
+    const photo = await readLimitedBody(request, MAX_FRAME)
+    if (!photo) return fail(413, 'Foto terlalu besar.')
+    if (!photo.byteLength) return fail(400, 'Foto kosong.')
+    // Decide the per-person allowance and claim the slot in one statement to prevent concurrent over-claims.
     const res = await db
       .prepare(
-        `INSERT INTO relay_frames (relay_id, slot, who, photo, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
+        `INSERT INTO relay_frames (relay_id, slot, who, photo, updated_at)
+         SELECT ?1, ?2, ?3, ?4, ?5
+         WHERE (SELECT COUNT(*) FROM relay_frames WHERE relay_id = ?1 AND who = ?3 AND slot != ?2) < ?6
+           AND NOT EXISTS (SELECT 1 FROM relay_frames WHERE relay_id = ?1 AND slot = ?2 AND who != ?3)
          ON CONFLICT (relay_id, slot) DO UPDATE SET photo = ?4, updated_at = ?5 WHERE relay_frames.who = ?3`,
       )
-      .bind(id, slot, who, photo, Date.now())
+      .bind(id, slot, who, photo.buffer, Date.now(), r.per_person)
       .run()
-    if (!res.meta.changes) return fail(409, 'Frame itu sudah diisi teman.', 'taken')
+    if (!res.meta.changes) {
+      const existing = await db.prepare('SELECT who FROM relay_frames WHERE relay_id = ?1 AND slot = ?2').bind(id, slot).first<{ who: string }>()
+      if (existing && existing.who !== who) return fail(409, 'Frame itu sudah diisi teman.', 'taken')
+      return fail(403, `Jatahmu ${r.per_person} frame sudah terpakai.`, 'quota')
+    }
     return json({ ok: true })
   }
   return fail(405, 'Metode tidak didukung.')

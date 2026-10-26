@@ -1,4 +1,50 @@
-# InWebBooth · Photobooth Online
+# 📸 InWebBooth
+
+**A creative, browser-first photobooth — from camera to share-ready memories.**
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20InWebBooth-0f766e?style=for-the-badge)](https://photobooth.inwebsite.online/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-React%20%2B%20Vite-3178c6?style=for-the-badge)](https://github.com/Mahendraz/photoboots)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-f38020?style=for-the-badge)](https://github.com/Mahendraz/photoboots)
+
+InWebBooth turns any phone or laptop into an online photobooth. Capture or upload photos, compose a layout, customize it, and export an image or animated GIF. Image editing and rendering happen **on your device**, not on an image-processing server.
+
+### ✨ Product highlights
+
+| Experience | What it offers |
+| --- | --- |
+| **Flexible layouts** | Photo strips, 4R print sheets, grids, and Polaroid-style compositions |
+| **Creative editing** | Illustrated frames, filters, stickers, and custom text |
+| **Multiple export sizes** | Print-ready images plus formats for stories, feeds, and square posts |
+| **Take photos together** | Collaborative sessions over a link using peer-to-peer browser connections, with a file-based fallback |
+| **Browser-first privacy** | Photos are composed locally; the backend handles authentication and usage quotas |
+
+### 🧭 The user journey
+
+**Choose a layout → Capture or upload → Customize → Download**
+
+**[Launch the app](https://photobooth.inwebsite.online/)** · [See the design notes](docs/design.md) · [Explore the source](src/)
+
+### 🛠️ Engineering overview
+
+- **Frontend:** React, TypeScript, Vite, browser Canvas.
+- **Backend:** Cloudflare Workers, D1, and Auth0 authentication.
+- **Collaboration:** WebRTC peer-to-peer photo exchange; a file hand-off is available as a fallback.
+- **Design goal:** a rich photo-editing experience with minimal backend requests and no server-side photo processing.
+
+### 💻 Run locally
+
+```bash
+npm install
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local
+npm run dev
+```
+
+Open `http://localhost:5173/app`. See the detailed notes below for Auth0 and deployment configuration.
+
+---
+
+## Detailed product & engineering notes (Bahasa Indonesia)
 
 Photobooth gratis di browser untuk `photobooth.inwebsite.online`. Pengguna memilih layout strip, foto pakai kamera atau upload, menghias, lalu mengunduh.
 
@@ -104,4 +150,4 @@ npm run dev                            # http://localhost:5173/app
 
 - Watermark digambar di browser berdasarkan jawaban server. Pengguna biasa tidak bisa melewatinya, tapi orang yang
   paham kode bisa. Penyalahguna bisa diblokir lewat kolom `users.banned`.
-- Belum dibuat: foto bareng **live** (P2P WebRTC), simpan & bagikan lewat link/QR (premium, butuh R2), pembayaran.
+- Belum dibuat: simpan & bagikan hasil lewat link/QR (premium, butuh R2), pembayaran.
